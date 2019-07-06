@@ -138,7 +138,7 @@ function addTransferData($transfers,$transfers_by_player,$player,$worker_number)
 
 function authenticateDFuse() {
     $filename = '.api_credentials.json';
-    $json = file_get_contents($filename) or die("<br/><br/><strong>Authentication file api_credentials.json not found.</strong>");
+    $json = file_get_contents($filename) or die("<br/><br/><strong>Authentication file .api_credentials.json not found.</strong>");
     $api_credentials = json_decode($json, true);
     if (time() > $api_credentials['expires_at']) {
         print "<br />...Updating DFuse Authentication Token...<br />";

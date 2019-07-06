@@ -10,7 +10,7 @@ Things I'd still like to add or improve on:
 * Eventually create a DAC for those involved, contributing tokens based on involvement. The token holders will then vote on what the DAC does with the pool of resources (reimburse investors, build a building, expand to include more plots, etc).
 * Expand these tools for others unions/DACs within Prospectors (and/or consider joining an existing group)
 
-To run this, you'll need an api_credentials.json file with the following format for use with your <a href="https://www.dfuse.io/en">DFuse account</a>:
+To run this, you'll need an `.api_credentials.json` file with the following format for use with your <a href="https://www.dfuse.io/en">DFuse account</a>:
 
 ```
 {"api_key":"server_....","token":"eyJhbGciOiJLT.....", "expires_at": 1562444037}
@@ -21,3 +21,9 @@ It will write json files to the cache folder, so make sure the account running y
 You can find me in Prospectors.io as 1lukestokes1 at 12/-19.
 
 Donations are certainly appreciated if you find this code useful.
+
+Add this to your nginx config to block access to the credentials file:
+
+```
+location ~ /\.  { deny all; return 404; }
+```
