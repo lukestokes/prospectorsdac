@@ -16,7 +16,7 @@ To run this, you'll need an `.api_credentials.json` file with the following form
 {"api_key":"server_....","token":"eyJhbGciOiJLT.....", "expires_at": 1562444037}
 ```
 
-It will write json files to the cache folder, so make sure the account running your webserver has permissions to do so.
+It will write json files to the cache folder, so make sure the account running your webserver has permissions to do so with something like `chmod -R 777 /var/www/html/prospectorsdac/cache`.
 
 You can find me in Prospectors.io as 1lukestokes1 at 12/-19.
 
