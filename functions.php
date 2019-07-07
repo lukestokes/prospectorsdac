@@ -146,10 +146,15 @@ function authenticateDFuse() {
         $params = array('api_key' => $api_credentials['api_key']);
         $header = array('Content-Type' => 'application/json');
         $json = request("POST", $url, $header, $params);
-        $new_token = json_decode($json, true);
-        $api_credentials['token'] = $new_token['token'];
-        $api_credentials['expires_at'] = $new_token['expires_at'];
-        file_put_contents($filename,$data);
+        if ($json) {
+            $new_token = json_decode($json, true);
+            if (array_key_exists('token', $api_credentials)) {
+                $api_credentials['token'] = $new_token['token'];
+                $api_credentials['expires_at'] = $new_token['expires_at'];
+                $data = json_encode($api_credentials);
+                file_put_contents($filename,$data);
+            }
+        }
     }
     return $api_credentials;
 }
