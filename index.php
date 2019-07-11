@@ -103,12 +103,9 @@ if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
 		}
 	}
 }
-$json = json_encode($transactions);
-$data = json_decode($json,true);
 
 $transfers_out = array();
-
-$transaction_data = getTransactionData($data);
+$transaction_data = getTransactionData($transactions);
 foreach ($transaction_data as $data) {
 	if ($data['loc_id'] == $dac_loc_id) {
 		$worker_id = $data['worker_id'];
@@ -156,10 +153,8 @@ foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
 				}
 			}
 		}
-		$json = json_encode($transactions);
-		$data = json_decode($json,true);
-		if ($data) {
-			$transaction_data = getTransactionData($data);
+		if ($transactions) {
+			$transaction_data = getTransactionData($transactions);
 			foreach ($transaction_data as $data) {
 				if ($data['loc_id'] == $dac_loc_id) {
 					$worker_id = $data['worker_id'];
