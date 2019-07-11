@@ -97,8 +97,11 @@ if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
 		$more_json = getJSONCached('mvstorewrk', $loc_owner, $api_credentials['token'], $data['cursor']);
 		$more_data = json_decode($more_json,true);
 		if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-			$data['cursor'] = $more_data['cursor'];
 			$transactions = array_merge($transactions,$more_data['transactions']);
+			if ($data['cursor'] == $more_data['cursor']) {
+				$keep_fetching = false;
+			}
+			$data['cursor'] = $more_data['cursor'];
 		} else {
 			$keep_fetching = false;
 		}
@@ -147,8 +150,11 @@ foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
 				$more_json = getJSONCached('mvwrkstore', $player_name, $api_credentials['token'], $data['cursor']);
 				$more_data=json_decode($more_json,true);
 				if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-					$data['cursor'] = $more_data['cursor'];
 					$transactions = array_merge($transactions,$more_data['transactions']);
+					if ($data['cursor'] == $more_data['cursor']) {
+						$keep_fetching = false;
+					}
+					$data['cursor'] = $more_data['cursor'];
 				} else {
 					$keep_fetching = false;
 				}
@@ -395,8 +401,11 @@ if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
 		$more_json = getJSONCached('mkpurchase', $loc_owner, $api_credentials['token'], $data['cursor']);
 		$more_data=json_decode($more_json,true);
 		if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-			$data['cursor'] = $more_data['cursor'];
 			$transactions = array_merge($transactions,$more_data['transactions']);
+			if ($data['cursor'] == $more_data['cursor']) {
+				$keep_fetching = false;
+			}
+			$data['cursor'] = $more_data['cursor'];
 		} else {
 			$keep_fetching = false;
 		}
