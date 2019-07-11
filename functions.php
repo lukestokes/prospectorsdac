@@ -32,6 +32,18 @@ $types = array(
 30 => 'wagonwheel'
 );
 
+function formatAmount($amount, $type = 0, $type_text = '') {
+    global $types;
+    $formatted_amount = $amount;
+    if ($type_text) {
+        $type = array_search($type_text, $types);
+    }
+    if ($type >= 2 && $type <= 6) {
+        $formatted_amount = $amount / 1000;
+    }
+    return $formatted_amount;
+}
+
 // method should be "GET", "PUT", etc..
 function request($method, $url, $header, $params) {
     $opts = array(
@@ -84,8 +96,31 @@ function getJSONCached($action, $actor, $token, $cursor="") {
 
 function getJSON($action, $actor, $token, $cursor="") {
     print "...Updating Cache: " . $action . " " . $actor . " " . $cursor . "...<br />";
+    $json = searchTransactions('account:prospectorsc action:' . $action .' auth:' . $actor, $token, $cursor="");
+    return $json;
+}
+
+function getJSONByKeyCached($action, $key, $token, $cursor="") {
+    $filename = 'cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
+    $json = @file_get_contents($filename);
+    if ($json) {
+        return $json;
+    }
+    $json = getJSONByKey($action, $key, $token, $cursor);
+    file_put_contents($filename,$json);
+    return $json;
+}
+
+
+function getJSONByKey($action, $key, $token, $cursor="") {
+    //print "...Updating Cache: " . $action . " " . $actor . " " . $cursor . "...<br />";
+    $json = searchTransactions('account:prospectorsc action:' . $action .' db.key:' . $key, $token, $cursor="");
+    return $json;
+}
+
+function searchTransactions($q, $token, $cursor="") {
     $url = 'https://mainnet.eos.dfuse.io/v0/search/transactions';
-    $params = array('q' => 'account:prospectorsc action:' . $action .' auth:' . $actor);
+    $params = array('q' => $q);
     if ($cursor != "") {
         $params['cursor'] = $cursor;
     }
