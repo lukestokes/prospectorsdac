@@ -71,15 +71,18 @@ function request($method, $url, $header, $params) {
     return $data;
 }
 
-function getJSONCached($last_cache_update, $action, $actor, $token, $cursor="") {
-    $filename = 'cache/_' . $action . '_' . $actor . '_' . $last_cache_update . '_' . $cursor . '.json';
-    $data = @file_get_contents($filename);
-    if ($data) {
-        return $data;
+function getJSONCached($action, $actor, $token, $cursor="") {
+    $filename = 'cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
+    $json = @file_get_contents($filename);
+    if ($json) {
+        return $json;
     }
-    $data = getJSON($action, $actor, $token, $cursor);
-    file_put_contents($filename,$data);
-    return $data;
+    $json = getJSON($action, $actor, $token, $cursor);
+    $data = json_decode($json, true);
+    if ($data['cursor'] != '') {
+        file_put_contents($filename,$json);
+    }
+    return $json;
 }
 
 function getJSON($action, $actor, $token, $cursor="") {
@@ -95,15 +98,18 @@ function getJSON($action, $actor, $token, $cursor="") {
     return $json;
 }
 
-function getTableDataCached($last_cache_update, $table, $token, $cursor="") {
-    $filename = 'cache/_' . $table . '_' . $last_cache_update . '_' . $cursor . '.json';
-    $data = @file_get_contents($filename);
-    if ($data) {
-        return $data;
+function getTableDataCached($table, $token, $cursor="") {
+    $filename = 'cache/_' . $table . '_' . $cursor . '.json';
+    $json = @file_get_contents($filename);
+    if ($json) {
+        return $json;
     }
-    $data = getTableData($table, $token, $cursor);
-    file_put_contents($filename,$data);
-    return $data;
+    $json = getTableData($table, $token, $cursor);
+    $data = json_decode($json, true);
+    if ($data['cursor'] != '') {
+        file_put_contents($filename,$json);
+    }
+    return $json;
 }
 
 function getTableData($table, $token, $cursor="") {
@@ -157,4 +163,14 @@ function authenticateDFuse() {
         }
     }
     return $api_credentials;
+}
+
+function getTransactionData($data) {
+    $transaction_data = array();
+    foreach ($data as $transaction_index => $transaction) {
+        foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
+            $transaction_data[] = $action_trace['act']['data'];
+        }
+    }
+    return $transaction_data;
 }

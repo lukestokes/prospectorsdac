@@ -78,23 +78,23 @@ if ($update_cache) {
 
 $CachedDate = new DateTime();
 $CachedDate->setTimestamp($last_cache_update);
-print "Data last updated: <strong>" . $CachedDate->format('Y-m-d H:i:s T') . "</strong> <a href=\"?refresh=1\">Refresh</a><br /><br />";
+print "Data last updated: <strong>" . $CachedDate->format('Y-m-d H:i:s T') . "</strong><br /><br />";
 
 $dac_loc_id = 851949;
 $loc_owner = '1lukestokes1';
 $dac_workers = array();
 
-$json = getTableDataCached($last_cache_update, "account", $api_credentials['token']);
-$all_players=json_decode($json,true);
+$json = getTableDataCached("account", $api_credentials['token']);
+$all_players = json_decode($json,true);
 
-$json = getJSONCached($last_cache_update, 'mvstorewrk', $loc_owner, $api_credentials['token']);
-$data=json_decode($json,true);
+$json = getJSONCached('mvstorewrk', $loc_owner, $api_credentials['token']);
+$data = json_decode($json,true);
 $transactions = $data['transactions'];
 if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
 	$keep_fetching = true;
 	while($keep_fetching) {
-		$more_json = getJSONCached($last_cache_update, 'mvstorewrk', $loc_owner, $api_credentials['token'], $data['cursor']);
-		$more_data=json_decode($more_json,true);
+		$more_json = getJSONCached('mvstorewrk', $loc_owner, $api_credentials['token'], $data['cursor']);
+		$more_data = json_decode($more_json,true);
 		if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
 			$data['cursor'] = $more_data['cursor'];
 			$transactions = array_merge($transactions,$more_data['transactions']);
@@ -104,25 +104,23 @@ if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
 	}
 }
 $json = json_encode($transactions);
-$data=json_decode($json,true);
+$data = json_decode($json,true);
 
 $transfers_out = array();
 
-foreach ($data as $transaction_index => $transaction) {
-	foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-		$data = $action_trace['act']['data'];
-		if ($data['loc_id'] == $dac_loc_id) {
-			$worker_id = $data['worker_id'];
-			if (!array_key_exists($worker_id, $transfers_out)) {
-				$transfers_out[$worker_id] = array();
-				$transfers_out[$worker_id]['types'] = array();
-			}
-			$type = $types[$data['stuff']['type_id']];
-			if (!array_key_exists($type, $transfers_out[$worker_id]['types'])) {
-				$transfers_out[$worker_id]['types'][$type] = 0;
-			}
-			$transfers_out[$worker_id]['types'][$type] += $data['stuff']['amount'];			
+$transaction_data = getTransactionData($data);
+foreach ($transaction_data as $data) {
+	if ($data['loc_id'] == $dac_loc_id) {
+		$worker_id = $data['worker_id'];
+		if (!array_key_exists($worker_id, $transfers_out)) {
+			$transfers_out[$worker_id] = array();
+			$transfers_out[$worker_id]['types'] = array();
 		}
+		$type = $types[$data['stuff']['type_id']];
+		if (!array_key_exists($type, $transfers_out[$worker_id]['types'])) {
+			$transfers_out[$worker_id]['types'][$type] = 0;
+		}
+		$transfers_out[$worker_id]['types'][$type] += $data['stuff']['amount'];
 	}
 }
 
@@ -141,28 +139,28 @@ foreach ($all_players['rows'] as $index => $player) {
 $transfers_in = array();
 
 foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
-	$json = getJSONCached($last_cache_update, 'mvwrkstore', $player_name, $api_credentials['token']);
-	$data=json_decode($json,true);
-	$transactions = $data['transactions'];
-	if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
-		$keep_fetching = true;
-		while($keep_fetching) {
-			$more_json = getJSONCached($last_cache_update, 'mvwrkstore', $player_name, $api_credentials['token'], $data['cursor']);
-			$more_data=json_decode($more_json,true);
-			if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-				$data['cursor'] = $more_data['cursor'];
-				$transactions = array_merge($transactions,$more_data['transactions']);
-			} else {
-				$keep_fetching = false;
+	$json = getJSONCached('mvwrkstore', $player_name, $api_credentials['token']);
+	$data = json_decode($json,true);
+	if ($data) {
+		$transactions = $data['transactions'];
+		if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
+			$keep_fetching = true;
+			while($keep_fetching) {
+				$more_json = getJSONCached('mvwrkstore', $player_name, $api_credentials['token'], $data['cursor']);
+				$more_data=json_decode($more_json,true);
+				if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
+					$data['cursor'] = $more_data['cursor'];
+					$transactions = array_merge($transactions,$more_data['transactions']);
+				} else {
+					$keep_fetching = false;
+				}
 			}
 		}
-	}
-	$json = json_encode($transactions);
-	$data=json_decode($json,true);
-	if ($data) {
-		foreach ($data as $transaction_index => $transaction) {
-			foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-				$data = $action_trace['act']['data'];
+		$json = json_encode($transactions);
+		$data = json_decode($json,true);
+		if ($data) {
+			$transaction_data = getTransactionData($data);
+			foreach ($transaction_data as $data) {
 				if ($data['loc_id'] == $dac_loc_id) {
 					$worker_id = $data['worker_id'];
 					if (!array_key_exists($worker_id, $transfers_in)) {
@@ -176,7 +174,11 @@ foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
 					$transfers_in[$worker_id]['types'][$type] += $data['stuff']['amount'];			
 				}
 			}
-		}		
+		} else {
+			print "<strong>Error:</strong> No data returned.<br />";
+		}
+	} else {
+		print "<strong>Error:</strong> No data returned.<br />";
 	}
 }
 
@@ -332,7 +334,6 @@ foreach ($net_transfers_by_player as $player => $data) {
 		}
 	}
 }
-
 
 ?>
 
