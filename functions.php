@@ -78,10 +78,7 @@ function getJSONCached($action, $actor, $token, $cursor="") {
         return $json;
     }
     $json = getJSON($action, $actor, $token, $cursor);
-    $data = json_decode($json, true);
-    if ($data['cursor'] != '') {
-        file_put_contents($filename,$json);
-    }
+    file_put_contents($filename,$json);
     return $json;
 }
 
@@ -99,16 +96,13 @@ function getJSON($action, $actor, $token, $cursor="") {
 }
 
 function getTableDataCached($table, $token, $cursor="") {
-    $filename = 'cache/_' . $table . '_' . $cursor . '.json';
+    $filename = 'cache/_table_data_' . $table . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
     }
     $json = getTableData($table, $token, $cursor);
-    $data = json_decode($json, true);
-    if ($data['cursor'] != '') {
-        file_put_contents($filename,$json);
-    }
+    file_put_contents($filename,$json);
     return $json;
 }
 
@@ -123,6 +117,23 @@ function getTableData($table, $token, $cursor="") {
     $header['Authorization'] = 'Bearer ' . $token;
     $json = request("GET", $url, $header, $params);
     return $json;
+}
+
+function clearEmptyCacheFiles() {
+    $files_to_delete = array();
+    $dir = new DirectoryIterator('./cache');
+    foreach ($dir as $fileinfo) {
+        if (!$fileinfo->isDot() && $fileinfo->getExtension() == 'json' && substr($fileinfo->getFilename(), 0, 1) == '_') {
+            $json = file_get_contents('./cache/' . $fileinfo->getFilename());
+            $data = json_decode($json, true);
+            if ($data && array_key_exists('cursor', $data) && $data['cursor'] == '') {
+                $files_to_delete[] = './cache/' . $fileinfo->getFilename();
+            }
+        }
+    }
+    foreach ($files_to_delete as $file) {
+        unlink($file);
+    }
 }
 
 function addTransferData($transfers,$transfers_by_player,$player,$worker_number) {

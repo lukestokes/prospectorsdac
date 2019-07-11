@@ -72,6 +72,7 @@ if ($last_cache_update) {
 	$update_cache = true;
 }
 if ($update_cache) {
+	clearEmptyCacheFiles();
 	$last_cache_update = time();
 	file_put_contents('cache/last_cache_update.txt',$last_cache_update);	
 }
