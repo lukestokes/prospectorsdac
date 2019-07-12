@@ -85,10 +85,10 @@ $dac_loc_id = 851949;
 $loc_owner = '1lukestokes1';
 $dac_workers = array();
 
-$json = getTableDataCached($last_cache_update, "account", $api_credentials['token']);
+$json = getTableDataCached("account", $api_credentials['token']);
 $all_players = json_decode($json,true);
 
-$transactions = getActionData($last_cache_update, 'mvstorewrk', $loc_owner, $api_credentials['token']);
+$transactions = getActionData('mvstorewrk', $loc_owner, $api_credentials['token']);
 
 $transfers_out = array();
 $transaction_data = getTransactionData($transactions);
@@ -115,7 +115,7 @@ foreach ($all_players['rows'] as $index => $player) {
 
 $transfers_in = array();
 foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
-	$transactions = getActionData($last_cache_update, 'mvwrkstore', $player_name, $api_credentials['token']);
+	$transactions = getActionData('mvwrkstore', $player_name, $api_credentials['token']);
 	if ($transactions) {
 		$transaction_data = getTransactionData($transactions);
 		foreach ($transaction_data as $data) {
@@ -184,7 +184,7 @@ foreach ($transfers_in_by_player as $player => $data) {
 				if (in_array($type, $transfers_out_by_player_to_display)) {
 					print "<td>";
 					if (array_key_exists($type, $data['types'])) {
-						$amount = formatAmount($data['types'][$type],$type);
+						$amount = formatAmount($data['types'][$type],0,$type);
 						print $amount;
 					} else {
 						print "0";
@@ -217,7 +217,7 @@ foreach ($transfers_in_by_player as $player => $data) {
 				if (in_array($type, $transfers_in_by_player_to_display)) {				
 					print "<td>";
 					if (array_key_exists($type, $data['types'])) {
-						$amount = formatAmount($data['types'][$type],$type);
+						$amount = formatAmount($data['types'][$type],0,$type);
 						print $amount;
 					} else {
 						print "0";
@@ -289,7 +289,7 @@ foreach ($net_transfers_by_player as $player => $data) {
 				if (in_array($type, $net_resources_to_display)) {				
 					print "<td>";
 					if (array_key_exists($type, $data['types'])) {
-						$amount = formatAmount($data['types'][$type],$type);
+						$amount = formatAmount($data['types'][$type],0,$type);
 						print $amount;
 					} else {
 						print "0";
@@ -319,7 +319,7 @@ foreach ($net_transfers_by_player as $player => $data) {
 	}
 */
 
-$transactions = getActionData($last_cache_update, 'mkpurchase', $loc_owner, $api_credentials['token']);
+$transactions = getActionData('mkpurchase', $loc_owner, $api_credentials['token']);
 $purchases = getTableDeltas($transactions, 'market', $api_credentials['token']);
 
 ?>
@@ -353,7 +353,7 @@ $purchases = getTableDeltas($transactions, 'market', $api_credentials['token']);
 
 <?php
 
-$transactions = getActionDataByKey($last_cache_update, 'mkpurchase', 'account/prospectorsc/1lukestokes1', $api_credentials['token']);
+$transactions = getActionDataByKey('mkpurchase', 'account/prospectorsc/1lukestokes1', $api_credentials['token']);
 //$transaction_data = getTransactionData($transactions);
 
 $purchases = getTableDeltas($transactions, 'market', $api_credentials['token'], $loc_owner);

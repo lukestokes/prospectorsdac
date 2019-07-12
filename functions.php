@@ -92,8 +92,8 @@ function request($method, $url, $header, $params) {
 }
 
 
-function getActionData($last_cache_update, $action, $actor, $token, $cursor="") {
-    $json = getJSONCached($last_cache_update, $action, $actor, $token, $cursor);
+function getActionData($action, $actor, $token, $cursor="") {
+    $json = getJSONCached($action, $actor, $token, $cursor);
     $previous_hash = md5($json);
     $data = json_decode($json,true);
     $transactions = $data['transactions'];
@@ -101,7 +101,7 @@ function getActionData($last_cache_update, $action, $actor, $token, $cursor="") 
         $cursor = $data['cursor'];
         $keep_fetching = true;
         while($keep_fetching) {
-            $more_json = getJSONCached($last_cache_update, $action, $actor, $token, $cursor);
+            $more_json = getJSONCached($action, $actor, $token, $cursor);
             $hash = md5($more_json);
             $more_data = json_decode($more_json,true);
             if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
@@ -120,8 +120,8 @@ function getActionData($last_cache_update, $action, $actor, $token, $cursor="") 
     return $transactions;
 }
 
-function getJSONCached($last_cache_update, $action, $actor, $token, $cursor="") {
-    $filename = 'cache/_' . $action . '_' . $actor . '_' . $last_cache_update . '_' . $cursor . '.json';
+function getJSONCached($action, $actor, $token, $cursor="") {
+    $filename = 'cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
     //print "Filename: $filename";
     $json = @file_get_contents($filename);
     if ($json) {
@@ -138,8 +138,8 @@ function getJSON($action, $actor, $token, $cursor="") {
     return $json;
 }
 
-function getActionDataByKey($last_cache_update, $action, $key, $token, $cursor="") {
-    $json = getJSONByKeyCached($last_cache_update, $action, $key, $token, $cursor);
+function getActionDataByKey($action, $key, $token, $cursor="") {
+    $json = getJSONByKeyCached($action, $key, $token, $cursor);
     $previous_hash = md5($json);
     $data = json_decode($json,true);
     $transactions = $data['transactions'];
@@ -147,7 +147,7 @@ function getActionDataByKey($last_cache_update, $action, $key, $token, $cursor="
         $cursor = $data['cursor'];
         $keep_fetching = true;
         while($keep_fetching) {
-            $more_json = getJSONByKeyCached($last_cache_update, $action, $key, $token, $cursor);
+            $more_json = getJSONByKeyCached($action, $key, $token, $cursor);
             $hash = md5($more_json);
             $more_data = json_decode($more_json,true);
             if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
@@ -166,8 +166,8 @@ function getActionDataByKey($last_cache_update, $action, $key, $token, $cursor="
     return $transactions;
 }
 
-function getJSONByKeyCached($last_cache_update, $action, $key, $token, $cursor="") {
-    $filename = 'cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $last_cache_update . '_' . $cursor . '.json';
+function getJSONByKeyCached($action, $key, $token, $cursor="") {
+    $filename = 'cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -195,8 +195,8 @@ function searchTransactions($q, $token, $cursor="") {
     return $json;
 }
 
-function getTableDataCached($last_cache_update, $table, $token, $cursor="") {
-    $filename = 'cache/_table_data_' . $table . '_' . $last_cache_update . '_' . $cursor . '.json';
+function getTableDataCached($table, $token, $cursor="") {
+    $filename = 'cache/_table_data_' . $table . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -279,7 +279,7 @@ function getTableDeltas($transactions, $table, $token, $owner_filter = '') {
 }
 
 function clearEmptyCacheFiles() {
-    $files_to_delete = array();
+    $files_to_delete = array('./cache/_table_data_account_.json');
     $dir = new DirectoryIterator('./cache');
     foreach ($dir as $fileinfo) {
         if (!$fileinfo->isDot() && $fileinfo->getExtension() == 'json' && substr($fileinfo->getFilename(), 0, 1) == '_') {
