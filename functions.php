@@ -1,6 +1,7 @@
 <?php
 
 $types = array(
+1 => 'gold',
 2 => 'wood',
 3 => 'stone',
 4 => 'coal',
@@ -195,6 +196,26 @@ function searchTransactions($q, $token, $cursor="") {
     return $json;
 }
 
+function binToJSONCached($hex_rows_to_process, $table, $token) {
+    $filename = 'cache/_bin_to_json_' . $table . '_' . md5(serialize($hex_rows_to_process)) . '.json';
+    $json = @file_get_contents($filename);
+    if ($json) {
+        return $json;
+    }
+    $json = binToJSON($hex_rows_to_process, $table, $token);
+    file_put_contents($filename,$json);
+    return $json;
+}
+
+function binToJSON($hex_rows_to_process, $table, $token) {
+    $url = 'https://mainnet.eos.dfuse.io/v0/state/abi/bin_to_json';
+    $params = array('account' => 'prospectorsc', 'table' => $table, 'hex_rows' => $hex_rows_to_process);
+    $header = array('Content-Type' => 'application/json');
+    $header['Authorization'] = 'Bearer ' . $token;
+    $json = request("POST", $url, $header, $params);
+    return $json;
+}
+
 function getTableDataCached($table, $token, $cursor="") {
     $filename = 'cache/_table_data_' . $table . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
@@ -225,57 +246,53 @@ function getTableDeltas($transactions, $table, $token, $owner_filter = '') {
     foreach ($transactions as $transaction_index => $transaction) {
         foreach ($transaction['lifecycle']['dbops'] as $dbop) {
             if ($dbop['table'] == $table) {
-                $action = array();
-                $action['old'] = $dbop['old']['hex'];
+                $action = array('old' => '', 'new' => '');
+                if (count($dbop['old'])) {
+                    $action['old'] = $dbop['old']['hex'];
+                }
                 if (count($dbop['new'])) {
                     $action['new'] = $dbop['new']['hex'];
-                } else {
-                    $action['new'] = '';
                 }
-                $actions[] = $action;
+                $actions[$transaction_index] = $action;
             }
         }
     }
     $hex_rows_to_process = array();
     foreach ($actions as $key => $action) {
-        $hex_rows_to_process[] = $action['old'];
+        if ($action['old'] != "") {
+            $hex_rows_to_process[] = $action['old'];
+        }
         if ($action['new'] != "") {
             $hex_rows_to_process[] = $action['new'];
         }
     }
-    $url = 'https://mainnet.eos.dfuse.io/v0/state/abi/bin_to_json';
-    $params = array('account' => 'prospectorsc', 'table' => 'market', 'hex_rows' => $hex_rows_to_process);
-    $header = array('Content-Type' => 'application/json');
-    $header['Authorization'] = 'Bearer ' . $token;
-    $json = request("POST", $url, $header, $params);
+    $json = binToJSONCached($hex_rows_to_process, $table, $token);
     $data = json_decode($json, true);
-
-    $action_datas = array();
-    $response_index = 0;
+    $deltas = array();
+    $response_index = -1;
     foreach ($actions as $key => $action) {
-        $action_data = array();
-        $old_values = $data['rows'][$response_index];
-        if ($table == 'market') {
-            $action_data['type'] = $types[$old_values['stuff']['type_id']];
-            $action_data['amount'] = $old_values['stuff']['amount'];
-            $action_data['price'] = $old_values['price'];
-            if ($action["new"] != "") {
-                $response_index++;
-                $new_values = $data['rows'][$response_index];
-                $action_data['amount'] -= $new_values['stuff']['amount'];
-            }
+        if (!array_key_exists($key, $deltas)) {
+            $deltas[$key] = array();
         }
-        $response_index++;
-
-        $action_data['amount'] = formatAmount($action_data['amount'],0,$action_data['type']);
-        $action_data['total'] = $action_data['amount'] * $action_data['price'];
-        if ($owner_filter == "") {
-            $action_datas[] = $action_data;
-        } elseif ($old_values['owner'] == $owner_filter || $old_values['owner'] == $owner_filter) {
-            $action_datas[] = $action_data;
+        if ($action['old'] != "") {
+            $response_index++;
+            $deltas[$key]['old'] = $data['rows'][$response_index];
+        }
+        if ($action['new'] != "") {
+            $response_index++;
+            $deltas[$key]['new'] = $data['rows'][$response_index];
         }
     }
-    return $action_datas;
+    $filtered_deltas = $deltas;
+    if ($owner_filter != "") {
+        $filtered_deltas = array();
+        foreach ($deltas as $key => $delta) {
+            if ($delta['old']['owner'] == $owner_filter || $delta['new']['owner'] == $owner_filter) {
+                $filtered_deltas[$key] = $delta;
+            }
+        }
+    }
+    return $filtered_deltas;
 }
 
 function clearEmptyCacheFiles() {
@@ -335,11 +352,13 @@ function authenticateDFuse() {
     return $api_credentials;
 }
 
-function getTransactionData($data) {
+function getTransactionData($data, $name) {
     $transaction_data = array();
     foreach ($data as $transaction_index => $transaction) {
         foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-            $transaction_data[] = $action_trace['act']['data'];
+            if ($action_trace['act']['name'] == $name) {
+                $transaction_data[] = $action_trace['act']['data'];
+            }
         }
     }
     return $transaction_data;

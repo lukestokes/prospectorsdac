@@ -91,7 +91,7 @@ $all_players = json_decode($json,true);
 $transactions = getActionData('mvstorewrk', $loc_owner, $api_credentials['token']);
 
 $transfers_out = array();
-$transaction_data = getTransactionData($transactions);
+$transaction_data = getTransactionData($transactions,'mvstorewrk');
 foreach ($transaction_data as $data) {
 	if ($data['loc_id'] == $dac_loc_id) {
 		$worker_id = $data['worker_id'];
@@ -117,7 +117,7 @@ $transfers_in = array();
 foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
 	$transactions = getActionData('mvwrkstore', $player_name, $api_credentials['token']);
 	if ($transactions) {
-		$transaction_data = getTransactionData($transactions);
+		$transaction_data = getTransactionData($transactions,'mvwrkstore');
 		foreach ($transaction_data as $data) {
 			if ($data['loc_id'] == $dac_loc_id) {
 				$worker_id = $data['worker_id'];
@@ -320,8 +320,20 @@ foreach ($net_transfers_by_player as $player => $data) {
 */
 
 $transactions = getActionData('mkpurchase', $loc_owner, $api_credentials['token']);
-$purchases = getTableDeltas($transactions, 'market', $api_credentials['token']);
-
+$deltas = getTableDeltas($transactions, 'market', $api_credentials['token']);
+$purchases = array();
+foreach ($deltas as $delta) {
+	$purchase = array();
+    $purchase['type'] = $types[$delta['old']['stuff']['type_id']];
+    $purchase['amount'] = $delta['old']['stuff']['amount'];
+    $purchase['price'] = $delta['old']['price'];
+    if (array_key_exists('new', $delta)) {
+		$purchase['amount'] -= $delta['new']['stuff']['amount'];
+    }
+    $purchase['amount'] = formatAmount($purchase['amount'],0,$purchase['type']);
+    $purchase['total'] = $purchase['amount'] * $purchase['price'];
+    $purchases[] = $purchase;
+}
 ?>
 
 <h1>Purchases By Plot Owner (<?php print $loc_owner; ?>)</h1>
@@ -354,9 +366,21 @@ $purchases = getTableDeltas($transactions, 'market', $api_credentials['token']);
 <?php
 
 $transactions = getActionDataByKey('mkpurchase', 'account/prospectorsc/1lukestokes1', $api_credentials['token']);
-//$transaction_data = getTransactionData($transactions);
+$deltas = getTableDeltas($transactions, 'market', $api_credentials['token'], $loc_owner);
 
-$purchases = getTableDeltas($transactions, 'market', $api_credentials['token'], $loc_owner);
+$purchases = array();
+foreach ($deltas as $delta) {
+	$purchase = array();
+    $purchase['type'] = $types[$delta['old']['stuff']['type_id']];
+    $purchase['amount'] = $delta['old']['stuff']['amount'];
+    $purchase['price'] = $delta['old']['price'];
+    if (array_key_exists('new', $delta)) {
+		$purchase['amount'] -= $delta['new']['stuff']['amount'];
+    }
+    $purchase['amount'] = formatAmount($purchase['amount'],0,$purchase['type']);
+    $purchase['total'] = $purchase['amount'] * $purchase['price'];
+    $purchases[] = $purchase;
+}
 
 $grouped_purchases = array();
 foreach ($purchases as $purchase) {
@@ -382,10 +406,8 @@ foreach ($grouped_purchases as $type => $purchases) {
 	);
 }
 
-
-
 ?>
-<!--
+
 <h1>Sales By Plot Owner (<?php print $loc_owner; ?>)</h1>
 <table>
 	<tr>
@@ -403,19 +425,18 @@ foreach ($grouped_purchases as $type => $purchases) {
 				print "<td>" . $purchase['type'] . "</td>";
 				print "<td>" . $purchase['amount'] . "</td>";
 				print "<td>" . $purchase['price'] . "</td>";
-				print "<td>" . $purchase['price']*$purchase['amount'] . "</td>";
+				print "<td>" . $purchase['total'] . "</td>";
 				print "</tr>";
 			}
 		}
 	?>
 	<tr>
 		<td colspan="3" align="right">Total:</td>
-		<td><?php print (0-$total); ?></td>
+		<td><?php print $total; ?></td>
 	</tr>
 </table>
--->
 
-<h1>Sales By Plot Owner (<?php print $loc_owner; ?>)</h1>
+<h1>Grouped Sales By Plot Owner (<?php print $loc_owner; ?>)</h1>
 <table>
 	<tr>
 		<th>Type</th>
