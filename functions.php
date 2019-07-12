@@ -44,6 +44,13 @@ function formatAmount($amount, $type = 0, $type_text = '') {
     return $formatted_amount;
 }
 
+function pdump($var) {
+    print "<pre>";
+    var_dump($var);
+    print "</pre>";
+}
+
+
 // method should be "GET", "PUT", etc..
 function request($method, $url, $header, $params) {
     $opts = array(
@@ -77,14 +84,45 @@ function request($method, $url, $header, $params) {
         $header_str .= "\r\n";
         $opts['http']['header'] = $header_str;
     }
-
+    //pdump($opts);
+    //pdump($url);
     $context = stream_context_create($opts);
     $data = file_get_contents($url, false, $context);
     return $data;
 }
 
-function getJSONCached($action, $actor, $token, $cursor="") {
-    $filename = 'cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
+
+function getActionData($last_cache_update, $action, $actor, $token, $cursor="") {
+    $json = getJSONCached($last_cache_update, $action, $actor, $token, $cursor);
+    $previous_hash = md5($json);
+    $data = json_decode($json,true);
+    $transactions = $data['transactions'];
+    if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
+        $cursor = $data['cursor'];
+        $keep_fetching = true;
+        while($keep_fetching) {
+            $more_json = getJSONCached($last_cache_update, $action, $actor, $token, $cursor);
+            $hash = md5($more_json);
+            $more_data = json_decode($more_json,true);
+            if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
+                if ($cursor == $more_data['cursor'] && $hash == $previous_hash) {
+                    $keep_fetching = false;
+                } else {
+                    $transactions = array_merge($transactions,$more_data['transactions']);
+                }
+                $cursor = $more_data['cursor'];
+                $previous_hash = $hash;
+            } else {
+                $keep_fetching = false;
+            }
+        }
+    }
+    return $transactions;
+}
+
+function getJSONCached($last_cache_update, $action, $actor, $token, $cursor="") {
+    $filename = 'cache/_' . $action . '_' . $actor . '_' . $last_cache_update . '_' . $cursor . '.json';
+    //print "Filename: $filename";
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -96,12 +134,40 @@ function getJSONCached($action, $actor, $token, $cursor="") {
 
 function getJSON($action, $actor, $token, $cursor="") {
     print "...Updating Cache: " . $action . " " . $actor . " " . $cursor . "...<br />";
-    $json = searchTransactions('account:prospectorsc action:' . $action .' auth:' . $actor, $token, $cursor="");
+    $json = searchTransactions('account:prospectorsc action:' . $action .' auth:' . $actor, $token, $cursor);
     return $json;
 }
 
-function getJSONByKeyCached($action, $key, $token, $cursor="") {
-    $filename = 'cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
+function getActionDataByKey($last_cache_update, $action, $key, $token, $cursor="") {
+    $json = getJSONByKeyCached($last_cache_update, $action, $key, $token, $cursor);
+    $previous_hash = md5($json);
+    $data = json_decode($json,true);
+    $transactions = $data['transactions'];
+    if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
+        $cursor = $data['cursor'];
+        $keep_fetching = true;
+        while($keep_fetching) {
+            $more_json = getJSONByKeyCached($last_cache_update, $action, $key, $token, $cursor);
+            $hash = md5($more_json);
+            $more_data = json_decode($more_json,true);
+            if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
+                if ($cursor == $more_data['cursor'] && $hash == $previous_hash) {
+                    $keep_fetching = false;
+                } else {
+                    $transactions = array_merge($transactions,$more_data['transactions']);
+                }
+                $cursor = $more_data['cursor'];
+                $previous_hash = $hash;
+            } else {
+                $keep_fetching = false;
+            }
+        }
+    }
+    return $transactions;
+}
+
+function getJSONByKeyCached($last_cache_update, $action, $key, $token, $cursor="") {
+    $filename = 'cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $last_cache_update . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -111,10 +177,9 @@ function getJSONByKeyCached($action, $key, $token, $cursor="") {
     return $json;
 }
 
-
 function getJSONByKey($action, $key, $token, $cursor="") {
     //print "...Updating Cache: " . $action . " " . $actor . " " . $cursor . "...<br />";
-    $json = searchTransactions('account:prospectorsc action:' . $action .' db.key:' . $key, $token, $cursor="");
+    $json = searchTransactions('account:prospectorsc action:' . $action .' db.key:' . $key, $token, $cursor);
     return $json;
 }
 
@@ -130,8 +195,8 @@ function searchTransactions($q, $token, $cursor="") {
     return $json;
 }
 
-function getTableDataCached($table, $token, $cursor="") {
-    $filename = 'cache/_table_data_' . $table . '_' . $cursor . '.json';
+function getTableDataCached($last_cache_update, $table, $token, $cursor="") {
+    $filename = 'cache/_table_data_' . $table . '_' . $last_cache_update . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -152,6 +217,65 @@ function getTableData($table, $token, $cursor="") {
     $header['Authorization'] = 'Bearer ' . $token;
     $json = request("GET", $url, $header, $params);
     return $json;
+}
+
+function getTableDeltas($transactions, $table, $token, $owner_filter = '') {
+    global $types;
+    $actions = array();
+    foreach ($transactions as $transaction_index => $transaction) {
+        foreach ($transaction['lifecycle']['dbops'] as $dbop) {
+            if ($dbop['table'] == $table) {
+                $action = array();
+                $action['old'] = $dbop['old']['hex'];
+                if (count($dbop['new'])) {
+                    $action['new'] = $dbop['new']['hex'];
+                } else {
+                    $action['new'] = '';
+                }
+                $actions[] = $action;
+            }
+        }
+    }
+    $hex_rows_to_process = array();
+    foreach ($actions as $key => $action) {
+        $hex_rows_to_process[] = $action['old'];
+        if ($action['new'] != "") {
+            $hex_rows_to_process[] = $action['new'];
+        }
+    }
+    $url = 'https://mainnet.eos.dfuse.io/v0/state/abi/bin_to_json';
+    $params = array('account' => 'prospectorsc', 'table' => 'market', 'hex_rows' => $hex_rows_to_process);
+    $header = array('Content-Type' => 'application/json');
+    $header['Authorization'] = 'Bearer ' . $token;
+    $json = request("POST", $url, $header, $params);
+    $data = json_decode($json, true);
+
+    $action_datas = array();
+    $response_index = 0;
+    foreach ($actions as $key => $action) {
+        $action_data = array();
+        $old_values = $data['rows'][$response_index];
+        if ($table == 'market') {
+            $action_data['type'] = $types[$old_values['stuff']['type_id']];
+            $action_data['amount'] = $old_values['stuff']['amount'];
+            $action_data['price'] = $old_values['price'];
+            if ($action["new"] != "") {
+                $response_index++;
+                $new_values = $data['rows'][$response_index];
+                $action_data['amount'] -= $new_values['stuff']['amount'];
+            }
+        }
+        $response_index++;
+
+        $action_data['amount'] = formatAmount($action_data['amount'],0,$action_data['type']);
+        $action_data['total'] = $action_data['amount'] * $action_data['price'];
+        if ($owner_filter == "") {
+            $action_datas[] = $action_data;
+        } elseif ($old_values['owner'] == $owner_filter || $old_values['owner'] == $owner_filter) {
+            $action_datas[] = $action_data;
+        }
+    }
+    return $action_datas;
 }
 
 function clearEmptyCacheFiles() {

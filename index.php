@@ -85,28 +85,10 @@ $dac_loc_id = 851949;
 $loc_owner = '1lukestokes1';
 $dac_workers = array();
 
-$json = getTableDataCached("account", $api_credentials['token']);
+$json = getTableDataCached($last_cache_update, "account", $api_credentials['token']);
 $all_players = json_decode($json,true);
 
-$json = getJSONCached('mvstorewrk', $loc_owner, $api_credentials['token']);
-$data = json_decode($json,true);
-$transactions = $data['transactions'];
-if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
-	$keep_fetching = true;
-	while($keep_fetching) {
-		$more_json = getJSONCached('mvstorewrk', $loc_owner, $api_credentials['token'], $data['cursor']);
-		$more_data = json_decode($more_json,true);
-		if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-			$transactions = array_merge($transactions,$more_data['transactions']);
-			if ($data['cursor'] == $more_data['cursor']) {
-				$keep_fetching = false;
-			}
-			$data['cursor'] = $more_data['cursor'];
-		} else {
-			$keep_fetching = false;
-		}
-	}
-}
+$transactions = getActionData($last_cache_update, 'mvstorewrk', $loc_owner, $api_credentials['token']);
 
 $transfers_out = array();
 $transaction_data = getTransactionData($transactions);
@@ -124,81 +106,40 @@ foreach ($transaction_data as $data) {
 		$transfers_out[$worker_id]['types'][$type] += $data['stuff']['amount'];
 	}
 }
-
-//var_dump($transfers_out);
-
 $transfers_out_by_player = array();
-
 foreach ($all_players['rows'] as $index => $player) {
 	$transfers_out_by_player = addTransferData($transfers_out,$transfers_out_by_player,$player,"0");
 	$transfers_out_by_player = addTransferData($transfers_out,$transfers_out_by_player,$player,"1");
 	$transfers_out_by_player = addTransferData($transfers_out,$transfers_out_by_player,$player,"2");
 }
 
-//var_dump($transfers_out_by_player);
-
 $transfers_in = array();
-
 foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
-	$json = getJSONCached('mvwrkstore', $player_name, $api_credentials['token']);
-	$data = json_decode($json,true);
-	if ($data) {
-		$transactions = $data['transactions'];
-		if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
-			$keep_fetching = true;
-			while($keep_fetching) {
-				$more_json = getJSONCached('mvwrkstore', $player_name, $api_credentials['token'], $data['cursor']);
-				$more_data=json_decode($more_json,true);
-				if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-					$transactions = array_merge($transactions,$more_data['transactions']);
-					if ($data['cursor'] == $more_data['cursor']) {
-						$keep_fetching = false;
-					}
-					$data['cursor'] = $more_data['cursor'];
-				} else {
-					$keep_fetching = false;
+	$transactions = getActionData($last_cache_update, 'mvwrkstore', $player_name, $api_credentials['token']);
+	if ($transactions) {
+		$transaction_data = getTransactionData($transactions);
+		foreach ($transaction_data as $data) {
+			if ($data['loc_id'] == $dac_loc_id) {
+				$worker_id = $data['worker_id'];
+				if (!array_key_exists($worker_id, $transfers_in)) {
+					$transfers_in[$worker_id] = array();
+					$transfers_in[$worker_id]['types'] = array();
 				}
+				$type = $types[$data['stuff']['type_id']];
+				if (!array_key_exists($type, $transfers_in[$worker_id]['types'])) {
+					$transfers_in[$worker_id]['types'][$type] = 0;
+				}
+				$transfers_in[$worker_id]['types'][$type] += $data['stuff']['amount'];
 			}
 		}
-		if ($transactions) {
-			$transaction_data = getTransactionData($transactions);
-			foreach ($transaction_data as $data) {
-				if ($data['loc_id'] == $dac_loc_id) {
-					$worker_id = $data['worker_id'];
-					if (!array_key_exists($worker_id, $transfers_in)) {
-						$transfers_in[$worker_id] = array();
-						$transfers_in[$worker_id]['types'] = array();
-					}
-					$type = $types[$data['stuff']['type_id']];
-					if (!array_key_exists($type, $transfers_in[$worker_id]['types'])) {
-						$transfers_in[$worker_id]['types'][$type] = 0;
-					}
-					$transfers_in[$worker_id]['types'][$type] += $data['stuff']['amount'];			
-				}
-			}
-		} else {
-			print "<strong>Error:</strong> No data returned.<br />";
-		}
-	} else {
-		print "<strong>Error:</strong> No data returned.<br />";
 	}
 }
-
-//var_dump($transfers_in);
-
 $transfers_in_by_player = array();
-
 foreach ($all_players['rows'] as $index => $player) {
 	$transfers_in_by_player = addTransferData($transfers_in,$transfers_in_by_player,$player,"0");
 	$transfers_in_by_player = addTransferData($transfers_in,$transfers_in_by_player,$player,"1");
 	$transfers_in_by_player = addTransferData($transfers_in,$transfers_in_by_player,$player,"2");
 }
-
-//var_dump($transfers_in_by_player);
-
-//print "<pre>";
-//var_dump($transfers_out_by_player);
-//print "</pre>";
 
 $transfers_out_by_player_to_display = array();
 foreach ($transfers_out_by_player as $player => $data) {
@@ -210,7 +151,6 @@ foreach ($transfers_out_by_player as $player => $data) {
 		}
 	}
 }
-
 $transfers_in_by_player_to_display = array();
 foreach ($transfers_in_by_player as $player => $data) {
 	foreach ($data['types'] as $type => $amount) {
@@ -221,7 +161,6 @@ foreach ($transfers_in_by_player as $player => $data) {
 		}
 	}
 }
-
 
 ?>
 
@@ -291,10 +230,10 @@ foreach ($transfers_in_by_player as $player => $data) {
 	?>
 </table>
 
+
 <?php
 
 $net_transfers_by_player = array();
-
 foreach ($transfers_in_by_player as $player => $data) {
 	if (!array_key_exists($player, $net_transfers_by_player)) {
 		$net_transfers_by_player[$player] = array();
@@ -304,17 +243,9 @@ foreach ($transfers_in_by_player as $player => $data) {
 		if (!array_key_exists($type, $net_transfers_by_player[$player]['types'])) {
 			$net_transfers_by_player[$player]['types'][$type] = 0;
 		}
-		/*
-		print "<pre>";
-		var_dump($data);
-		var_dump($amount);
-		var_dump($net_transfers_by_player[$player]['types'][$type]);
-		print "</pre>";
-		*/
 		$net_transfers_by_player[$player]['types'][$type] += $amount;
 	}
 }
-
 foreach ($transfers_out_by_player as $player => $data) {
 	if (!array_key_exists($player, $net_transfers_by_player)) {
 		$net_transfers_by_player[$player] = array();
@@ -327,7 +258,6 @@ foreach ($transfers_out_by_player as $player => $data) {
 		$net_transfers_by_player[$player]['types'][$type] -= $amount;
 	}
 }
-
 $net_resources_to_display = array();
 foreach ($net_transfers_by_player as $player => $data) {
 	foreach ($data['types'] as $type => $amount) {
@@ -338,9 +268,7 @@ foreach ($net_transfers_by_player as $player => $data) {
 		}
 	}
 }
-
 ?>
-
 <h1>Net Resource Contribution By Player</h1>
 <table>
 	<tr>
@@ -391,76 +319,8 @@ foreach ($net_transfers_by_player as $player => $data) {
 	}
 */
 
-$json = getJSONCached('mkpurchase', $loc_owner, $api_credentials['token']);
-$data = json_decode($json,true);
-$transactions = $data['transactions'];
-
-if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
-	$keep_fetching = true;
-	while($keep_fetching) {
-		$more_json = getJSONCached('mkpurchase', $loc_owner, $api_credentials['token'], $data['cursor']);
-		$more_data=json_decode($more_json,true);
-		if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-			$transactions = array_merge($transactions,$more_data['transactions']);
-			if ($data['cursor'] == $more_data['cursor']) {
-				$keep_fetching = false;
-			}
-			$data['cursor'] = $more_data['cursor'];
-		} else {
-			$keep_fetching = false;
-		}
-	}
-}
-
-$market_actions = array();
-foreach ($transactions as $transaction_index => $transaction) {
-    foreach ($transaction['lifecycle']['dbops'] as $dbop) {
-		if ($dbop['table'] == 'market') {
-			$market_action = array();
-			$market_action['old'] = $dbop['old']['hex'];
-			if (count($dbop['new'])) {
-				$market_action['new'] = $dbop['new']['hex'];
-			} else {
-				$market_action['new'] = '';
-			}
-			$market_actions[] = $market_action;
-		}
-    }
-}
-
-$hex_rows_to_process = array();
-foreach ($market_actions as $key => $market_action) {
-	$hex_rows_to_process[] = $market_action['old'];
-	if ($market_action['new'] != "") {
-		$hex_rows_to_process[] = $market_action['new'];
-	}
-}
-
-$url = 'https://mainnet.eos.dfuse.io/v0/state/abi/bin_to_json';
-$params = array('account' => 'prospectorsc', 'table' => 'market', 'hex_rows' => $hex_rows_to_process);
-$header = array('Content-Type' => 'application/json');
-$header['Authorization'] = 'Bearer ' . $api_credentials['token'];
-$json = request("POST", $url, $header, $params);
-$data = json_decode($json, true);
-
-$purchases = array();
-$response_index = 0;
-foreach ($market_actions as $key => $market_action) {
-	$purchase = array();
-	$old_values = $data['rows'][$response_index];
-	//print "Old Values: ";
-	//print $old_values['stuff']['amount'] . " " . $types[$old_values['stuff']['type_id']] . " at " . $old_values['price'] . " each (total: " . $old_values['price'] * $old_values['stuff']['amount'] . ")<br />";
-	$purchase['type'] = $types[$old_values['stuff']['type_id']];
-	$purchase['amount'] = $old_values['stuff']['amount'];
-	$purchase['price'] = $old_values['price'];
-	if ($market_action["new"] != "") {
-		$response_index++;
-		$new_values = $data['rows'][$response_index];
-		$purchase['amount'] -= $new_values['stuff']['amount'];
-	}
-	$response_index++;
-	$purchases[] = $purchase;
-}
+$transactions = getActionData($last_cache_update, 'mkpurchase', $loc_owner, $api_credentials['token']);
+$purchases = getTableDeltas($transactions, 'market', $api_credentials['token']);
 
 ?>
 
@@ -475,13 +335,12 @@ foreach ($market_actions as $key => $market_action) {
 	<?php
 		$total = 0;
 		foreach ($purchases as $purchase) {
-			$amount = formatAmount($purchase['amount'],0,$purchase['type']);
-			$total += $purchase['price']*$amount;
+			$total += $purchase['total'];
 			print "<tr>";
 			print "<td>" . $purchase['type'] . "</td>";
-			print "<td>" . $amount . "</td>";
+			print "<td>" . $purchase['amount'] . "</td>";
 			print "<td>" . $purchase['price'] . "</td>";
-			print "<td>" . $purchase['price']*$amount . "</td>";
+			print "<td>" . $purchase['total'] . "</td>";
 			print "</tr>";
 		}
 	?>
@@ -493,114 +352,11 @@ foreach ($market_actions as $key => $market_action) {
 
 
 <?php
-/*
-$json = getJSONByKeyCached('rentloc', 'account/prospectorsc/1lukestokes1', $api_credentials['token']);
-$data = json_decode($json,true);
-$transactions = $data['transactions'];
-$transaction_data = getTransactionData($data['transactions']);
 
-var_dump($transaction_data);
-*/
+$transactions = getActionDataByKey($last_cache_update, 'mkpurchase', 'account/prospectorsc/1lukestokes1', $api_credentials['token']);
+//$transaction_data = getTransactionData($transactions);
 
-// account:prospectorsc db.key:account/prospectorsc/1lukestokes1 action:mkpurchase
-
-//var_dump($api_credentials['token']);
-
-$json = getJSONByKeyCached('mkpurchase', 'account/prospectorsc/1lukestokes1', $api_credentials['token']);
-$data = json_decode($json,true);
-$transactions = $data['transactions'];
-
-/*
-if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
-	$keep_fetching = true;
-	while($keep_fetching) {
-		$more_json = getJSONByKeyCached('mkpurchase', 'account/prospectorsc/1lukestokes1', $api_credentials['token'], $data['cursor']);
-		$more_data=json_decode($more_json,true);
-		if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-			$transactions = array_merge($transactions,$more_data['transactions']);
-			if ($data['cursor'] == $more_data['cursor']) {
-				$keep_fetching = false;
-			}
-			$data['cursor'] = $more_data['cursor'];
-		} else {
-			$keep_fetching = false;
-		}
-	}
-}
-*/
-
-$transaction_data = getTransactionData($data['transactions']);
-
-//print "<pre>";
-//var_dump($transaction_data);
-//print "</pre>";
-
-
-$market_actions = array();
-foreach ($transactions as $transaction_index => $transaction) {
-    foreach ($transaction['lifecycle']['dbops'] as $dbop) {
-		if ($dbop['table'] == 'market') {
-			$market_action = array();
-			$market_action['old'] = $dbop['old']['hex'];
-			if (count($dbop['new'])) {
-				$market_action['new'] = $dbop['new']['hex'];
-			} else {
-				$market_action['new'] = '';
-			}
-			$market_actions[] = $market_action;
-		}
-    }
-}
-
-$hex_rows_to_process = array();
-foreach ($market_actions as $key => $market_action) {
-	$hex_rows_to_process[] = $market_action['old'];
-	if ($market_action['new'] != "") {
-		$hex_rows_to_process[] = $market_action['new'];
-	}
-}
-
-$url = 'https://mainnet.eos.dfuse.io/v0/state/abi/bin_to_json';
-$params = array('account' => 'prospectorsc', 'table' => 'market', 'hex_rows' => $hex_rows_to_process);
-$header = array('Content-Type' => 'application/json');
-$header['Authorization'] = 'Bearer ' . $api_credentials['token'];
-$json = request("POST", $url, $header, $params);
-$data = json_decode($json, true);
-
-
-//print "<pre>";
-//var_dump($data);
-//print "</pre>";
-
-
-$purchases = array();
-$response_index = 0;
-foreach ($market_actions as $key => $market_action) {
-	$purchase = array();
-	$old_values = $data['rows'][$response_index];
-	//print "Old Values: ";
-	//print $old_values['stuff']['amount'] . " " . $types[$old_values['stuff']['type_id']] . " at " . $old_values['price'] . " each (total: " . $old_values['price'] * $old_values['stuff']['amount'] . ")<br />";
-	$purchase['type'] = $types[$old_values['stuff']['type_id']];
-	$purchase['amount'] = $old_values['stuff']['amount'];
-	$purchase['price'] = $old_values['price'];
-	if ($market_action["new"] != "") {
-		$response_index++;
-		$new_values = $data['rows'][$response_index];
-		$purchase['amount'] -= $new_values['stuff']['amount'];
-	}
-	$response_index++;
-
-	$purchase['amount'] = formatAmount($purchase['amount'],0,$purchase['type']);
-	$purchase['total'] = $purchase['amount'] * $purchase['price'];
-
-	if ($old_values['owner'] == $loc_owner || $old_values['owner'] == $loc_owner) {
-		$purchases[] = $purchase;
-	}
-}
-
-//print "<pre>";
-//var_dump($purchases);
-//print "</pre>";
+$purchases = getTableDeltas($transactions, 'market', $api_credentials['token'], $loc_owner);
 
 $grouped_purchases = array();
 foreach ($purchases as $purchase) {
@@ -689,7 +445,6 @@ foreach ($grouped_purchases as $type => $purchases) {
 		<td><?php print $total; ?></td>
 	</tr>
 </table>
-
 
   </body>
 </html>
