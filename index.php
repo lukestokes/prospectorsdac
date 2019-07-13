@@ -510,6 +510,7 @@ $sales_details = getMarketTransactionDetails($grouped_sales);
 <?php
     $valid_accounts = array_keys($net_transfers_by_player);
     $account_options = '';
+    $selected_option = '';
     if (array_key_exists('account', $_GET)) {
         $selected_option = $_GET['account'];
     }
