@@ -345,11 +345,11 @@ $purchase_details = getMarketTransactionDetails($grouped_purchases);
 <table>
     <tr>
         <th>Type</th>
-        <th>number_of_transactions</th>
-        <th>average_transaction_price</th>
-        <th>average_amount_sold</th>
-        <th>amount_transacted</th>
-        <th>total_amount_of_transactions</th>
+        <th>Number of Purchases</th>
+        <th>Average Price</th>
+        <th>Average Quantity Purchased</th>
+        <th>Quantity Purchased</th>
+        <th>Purchase Total</th>
     </tr>
     <?php
         $total = 0;
@@ -376,7 +376,7 @@ $purchase_details = getMarketTransactionDetails($grouped_purchases);
 <table>
     <tr>
         <th>Type</th>
-        <th>Amount</th>
+        <th>Quantity</th>
         <th>Price</th>
         <th>Total</th>
     </tr>
@@ -455,11 +455,11 @@ $sales_details = getMarketTransactionDetails($grouped_sales);
 <table>
     <tr>
         <th>Type</th>
-        <th>number_of_transactions</th>
-        <th>average_transaction_price</th>
-        <th>average_amount_sold</th>
-        <th>amount_transacted</th>
-        <th>total_amount_of_transactions</th>
+        <th>Number of Sales</th>
+        <th>Average Price</th>
+        <th>Average Quantity Sold</th>
+        <th>Quantity Sold</th>
+        <th>Sales Total</th>
     </tr>
     <?php
         $total = 0;
@@ -485,7 +485,7 @@ $sales_details = getMarketTransactionDetails($grouped_sales);
 <table>
     <tr>
         <th>Type</th>
-        <th>Amount</th>
+        <th>Quantity</th>
         <th>Price</th>
         <th>Total</th>
     </tr>
