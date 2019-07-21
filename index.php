@@ -55,7 +55,7 @@ At this point, I make no guarutnees about anything regarding how centralized or 
 <?php
 error_reporting(E_ALL); ini_set('display_errors', 1);
 
-include 'functions.php';
+include 'includes/functions.php';
 
 //************ CONFIG ******************//
 
@@ -534,7 +534,8 @@ $sales_details = getMarketTransactionDetails($grouped_sales);
 if (array_key_exists('account', $_GET)) {
     $valid_accounts = array_keys($net_transfers_by_player);
     if (in_array($_GET['account'], $valid_accounts)) {
-        $account_actions = getAccountBalanceChanges($_GET['account'], $api_credentials['token']);
+        $result = getAccountBalanceChanges($_GET['account'], $api_credentials['token']);
+        $account_actions = $result['account_actions'];
         $balance = 0;
         ?>
         <h1>Balance Over Time for <?php print $_GET['account']; ?></h1>

@@ -131,7 +131,7 @@ function getActionData($action, $actor, $token, $cursor="") {
 }
 
 function getJSONCached($action, $actor, $token, $cursor="") {
-    $filename = 'cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
+    $filename = '../cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
     //print "Filename: $filename";
     $json = @file_get_contents($filename);
     if ($json) {
@@ -181,7 +181,7 @@ function getActionDataByKey($action, $key, $token, $cursor="") {
 }
 
 function getJSONByKeyCached($action, $key, $token, $cursor="") {
-    $filename = 'cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
+    $filename = '../cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -214,7 +214,7 @@ function searchTransactions($q, $token, $cursor="") {
 }
 
 function binToJSONCached($hex_rows_to_process, $table, $token) {
-    $filename = 'cache/_bin_to_json_' . $table . '_' . md5(serialize($hex_rows_to_process)) . '.json';
+    $filename = '../cache/_bin_to_json_' . $table . '_' . md5(serialize($hex_rows_to_process)) . '.json';
     $json = binToJSON($hex_rows_to_process, $table, $token);
     file_put_contents($filename,$json);
     return $json;
@@ -230,7 +230,7 @@ function binToJSON($hex_rows_to_process, $table, $token) {
 }
 
 function getTableDataCached($table, $token, $cursor="") {
-    $filename = 'cache/_table_data_' . $table . '_' . $cursor . '.json';
+    $filename = '../cache/_table_data_' . $table . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -291,7 +291,8 @@ function addDBOPSData($transactions, $table, $token, $key_filter = '') {
             if ($dbop['table'] == $table) {
                 $include = true;
                 if ($key_filter != "" && $key_filter != $dbop['key']) {
-                    $include = false;
+                    // removing this for now since we need all db operations to find referrals
+                    //$include = false;
                 }
                 if ($include) {
                     if (count($dbop['old'])) {
@@ -310,28 +311,34 @@ function addDBOPSData($transactions, $table, $token, $key_filter = '') {
     $response_index = -1;
     foreach ($transactions_with_deltas as $transaction_index => $transaction) {
         $dbops_with_data = array();
+        $other_dbops_with_data = array();
         foreach ($transaction['lifecycle']['dbops'] as $dbop_index => $dbop) {
             if ($dbop['table'] == $table) {
+                $dbop_with_data = $dbop;
+                if (count($dbop['old'])) {
+                    $response_index++;
+                    $dbop_with_data['old']['data'] = $data['rows'][$response_index];
+                }
+                if (count($dbop['new'])) {
+                    $response_index++;
+                    $dbop_with_data['new']['data'] = $data['rows'][$response_index];
+                }
                 $include = true;
                 if ($key_filter != "" && $key_filter != $dbop['key']) {
                     $include = false;
                 }
                 if ($include) {
-                    $dbop_with_data = $dbop;
-                    if (count($dbop['old'])) {
-                        $response_index++;
-                        $dbop_with_data['old']['data'] = $data['rows'][$response_index];
-                    }
-                    if (count($dbop['new'])) {
-                        $response_index++;
-                        $dbop_with_data['new']['data'] = $data['rows'][$response_index];
-                    }
                     $dbops_with_data[] = $dbop_with_data;
+                } else {
+                    $other_dbops_with_data[] = $dbop_with_data;
                 }
             }
         }
         if (count($dbops_with_data)) {
             $transactions_with_deltas[$transaction_index]['lifecycle']['dbops'] = $dbops_with_data;
+        }
+        if (count($other_dbops_with_data)) {
+            $transactions_with_deltas[$transaction_index]['lifecycle']['other_dbops'] = $other_dbops_with_data;
         }
     }
     return $transactions_with_deltas;
@@ -380,19 +387,20 @@ function getAccountBalanceChanges($account, $token) {
         }
     }
     usort($account_actions, 'block_time_compare');
-    return $account_actions;
+    $return = array('account_actions' => $account_actions, 'raw_data' => $everything_with_deltas);
+    return $return;
 }
 
 
 function clearEmptyCacheFiles() {
-    $files_to_delete = array('./cache/_table_data_account_.json');
-    $dir = new DirectoryIterator('./cache');
+    $files_to_delete = array('../cache/_table_data_account_.json');
+    $dir = new DirectoryIterator('../cache');
     foreach ($dir as $fileinfo) {
         if (!$fileinfo->isDot() && $fileinfo->getExtension() == 'json' && substr($fileinfo->getFilename(), 0, 1) == '_') {
-            $json = file_get_contents('./cache/' . $fileinfo->getFilename());
+            $json = file_get_contents('../cache/' . $fileinfo->getFilename());
             $data = json_decode($json, true);
             if ($data && array_key_exists('cursor', $data) && $data['cursor'] == '') {
-                $files_to_delete[] = './cache/' . $fileinfo->getFilename();
+                $files_to_delete[] = '../cache/' . $fileinfo->getFilename();
             }
         }
     }
@@ -419,7 +427,7 @@ function addTransferData($transfers,$transfers_by_player,$player,$worker_number)
 }
 
 function authenticateDFuse() {
-    $filename = '.api_credentials.json';
+    $filename = __DIR__ . '/../.api_credentials.json';
     $json = file_get_contents($filename) or die("<br/><br/><strong>Authentication file .api_credentials.json not found.</strong>");
     $api_credentials = json_decode($json, true);
     if (time() > $api_credentials['expires_at']) {
