@@ -48,6 +48,7 @@ function getActivityDescription($activity, $amount) {
         'mkbuildord' => 'Created a Build Order',
         'mktransord' =>  'Created a Transfer Order',
         'mvstorgold' => 'Converted Mined Gold',
+        'mkmakeord' => 'Created a Make Order',
     );
     $activity_key = $activity;
     if ($activity == 'mkpurchase') {
