@@ -22,7 +22,7 @@ if (array_key_exists('account', $_GET)) {
   </head>
   <body>
     <center>
-        <img src="https://prospectors.io/assets/logo-c4a2df66ead25380fa80adac0b5f4c9bd8876c35f941a3dcbfe6b3a344ad6540.png">
+        <a href="https://play.prospectors.io?ref=1lukestokes1"><img src="https://prospectors.io/assets/logo-c4a2df66ead25380fa80adac0b5f4c9bd8876c35f941a3dcbfe6b3a344ad6540.png"></a>
         <h1>Account Balance History
         <?php
         if ($account != "") {
@@ -52,6 +52,9 @@ if ($account == '') {
     </p>
     <p>
         Note: The first time you load your page, it may take a few minutes or even time out.
+    </p>
+    <p>
+        If you're new to <a href="https://prospectors.io/">Prospectors</a> and don't yet have an EOS account, <a href="https://steemit.com/blockchain/@lukestokes/blockchain-gaming-for-cryptocurrency-onboarding">check this post to get started</a>. Please use this referral link to sign up: <a href="https://play.prospectors.io?ref=1lukestokes1">https://play.prospectors.io?ref=1lukestokes1</a>.
     </p>
 </div>
 <?php
