@@ -70,7 +70,7 @@ $loc_owner = '1lukestokes1';
 
 $api_credentials = authenticateDFuse();
 
-$cache_file_name = 'cache/last_cache_update.txt';
+$cache_file_name = __DIR__ . '/cache/last_cache_update.txt';
 $last_cache_update = @file_get_contents($cache_file_name);
 $update_cache = false;
 if ($last_cache_update) {

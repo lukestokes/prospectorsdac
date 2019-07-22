@@ -67,7 +67,7 @@ if ($account == '') {
 $required_payment_amount = 1; // amount required per month to refresh the data.
 $owner = 'lukeeosproxy';
 
-$cache_file_name = '../cache/last_cache_update_' . $account . '.txt';
+$cache_file_name = __DIR__ . '/../cache/last_cache_update_' . $account . '.txt';
 $last_cache_update = @file_get_contents($cache_file_name);
 $update_cache = false;
 if ($last_cache_update) {

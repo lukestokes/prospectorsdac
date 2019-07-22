@@ -160,7 +160,7 @@ function getActionData($action, $actor, $token, $cursor="") {
 }
 
 function getJSONCached($action, $actor, $token, $cursor="") {
-    $filename = '../cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
+    $filename = __DIR__ . '/../cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
     //print "Filename: $filename";
     $json = @file_get_contents($filename);
     if ($json) {
@@ -210,7 +210,7 @@ function getActionDataByKey($action, $key, $token, $cursor="") {
 }
 
 function getJSONByKeyCached($action, $key, $token, $cursor="") {
-    $filename = '../cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
+    $filename = __DIR__ . '/../cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -287,7 +287,7 @@ function searchTransactionsInternal($params, $token) {
 }
 
 function binToJSONCached($hex_rows_to_process, $table, $token) {
-    $filename = '../cache/_bin_to_json_' . $table . '_' . md5(serialize($hex_rows_to_process)) . '.json';
+    $filename = __DIR__ . '/../cache/_bin_to_json_' . $table . '_' . md5(serialize($hex_rows_to_process)) . '.json';
     $json = binToJSON($hex_rows_to_process, $table, $token);
     file_put_contents($filename,$json);
     return $json;
@@ -303,7 +303,7 @@ function binToJSON($hex_rows_to_process, $table, $token) {
 }
 
 function getTableDataCached($table, $token, $cursor="") {
-    $filename = '../cache/_table_data_' . $table . '_' . $cursor . '.json';
+    $filename = __DIR__ . '/../cache/_table_data_' . $table . '_' . $cursor . '.json';
     $json = @file_get_contents($filename);
     if ($json) {
         return $json;
@@ -474,8 +474,8 @@ function getAccountBalanceChanges($account, $token) {
 
 
 function clearEmptyCacheFiles($account) {
-    $files_to_delete = array('../cache/_table_data_account_.json');
-    $dir = new DirectoryIterator('../cache');
+    $files_to_delete = array(__DIR__ . '/../cache/_table_data_account_.json');
+    $dir = new DirectoryIterator(__DIR__ . '/../cache');
     foreach ($dir as $fileinfo) {
         $filename = $fileinfo->getFilename();
         if (!$fileinfo->isDot() && $fileinfo->getExtension() == 'json' && substr($filename, 0, 1) == '_') {
@@ -484,10 +484,10 @@ function clearEmptyCacheFiles($account) {
                 $checkfile = true;
             }
             if ($checkfile) {
-                $json = file_get_contents('../cache/' . $filename);
+                $json = file_get_contents(__DIR__ . '/../cache/' . $filename);
                 $data = json_decode($json, true);
                 if ($data && array_key_exists('cursor', $data) && $data['cursor'] == '') {
-                    $files_to_delete[] = '../cache/' . $filename;
+                    $files_to_delete[] = __DIR__ . '/../cache/' . $filename;
                 }
             }
         }
