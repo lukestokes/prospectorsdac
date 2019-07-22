@@ -92,10 +92,8 @@ function request($method, $url, $header, $params) {
         $header_str .= "\r\n";
         $opts['http']['header'] = $header_str;
     }
-    /*
-    pdump($opts);
-    pdump($url);
-    */
+    //var_dump($opts);
+    //var_dump($url);
     $context = stream_context_create($opts);
     $data = file_get_contents($url, false, $context);
     return $data;
@@ -202,11 +200,51 @@ function getJSONByKey($action, $key, $token, $cursor="") {
 }
 
 function searchTransactions($q, $token, $cursor="") {
-    $url = 'https://mainnet.eos.dfuse.io/v0/search/transactions';
     $params = array('q' => $q);
     if ($cursor != "") {
         $params['cursor'] = $cursor;
     }
+    $json = searchTransactionsInternal($params, $token);
+    return $json;
+}
+
+function checkPayment($account, $required_amount, $owner, $token) {
+    $paid = false;
+    $payment_date = '';
+    $payment_amount = 0;
+    $q = 'account:eosio.token action:transfer data.to:' . $owner . ' data.from:' . $account . ' auth:' . $account;
+    $params = array('q' => $q, 'sort' => 'desc', 'limit' => 1);
+    $json = searchTransactionsInternal($params, $token);
+    if ($json) {
+        $data = json_decode($json, true);
+        foreach ($data['transactions'] as $transaction) {
+            $payment_date = $transaction['lifecycle']['execution_trace']['block_time'];
+            foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace) {
+                $payment_with_symbol = $action_trace['act']['data']['quantity'];
+                if (substr($payment_with_symbol, -4) == " EOS") {
+                    $payment_amount = str_replace(" EOS", "", $payment_with_symbol);
+                    if ($payment_amount >= $required_amount) {
+                        $now = new DateTime();
+                        $block_time_string_format = "Y-m-d H:i:s";
+                        $block_time_string = $payment_date;
+                        $block_time_string = str_replace("T", " ", $block_time_string);
+                        $block_time_string = str_replace(".5", "", $block_time_string);
+                        $paymentTime = DateTime::createFromFormat($block_time_string_format, $block_time_string);
+                        $interval = $now->diff($paymentTime);
+                        if ($interval->days <= 30) {
+                            $paid = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    $result = array('paid' => $paid, 'payment_amount' => $payment_amount, 'payment_date' => $payment_date);
+    return $result;
+}
+
+function searchTransactionsInternal($params, $token) {
+    $url = 'https://mainnet.eos.dfuse.io/v0/search/transactions';
     $header = array('Content-Type' => 'application/json');
     $header['Authorization'] = 'Bearer ' . $token;
     $json = request("GET", $url, $header, $params);
@@ -345,12 +383,17 @@ function addDBOPSData($transactions, $table, $token, $key_filter = '') {
 }
 
 function getAccountBalanceChanges($account, $token) {
+    $prospectors_account = 'prospectorsc';
     $account_actions = array();
     $deposits = getActionData('transfer', $account, $token);
     if ($deposits) {
         $deposits_data = getTransactionData($deposits);
         foreach ($deposits as $key => $deposit) {
-            if ($deposits_data[$key]['data']['memo'] != 'stake') {
+            $include = false;
+            if ($deposits_data[$key]['data']['to'] == $prospectors_account && $deposits_data[$key]['data']['memo'] != 'stake') {
+                $include = true;
+            }
+            if ($include) {
                 $amount = (str_replace(' PGL', '', $deposits_data[$key]['data']['quantity']) * 1000);
                 $account_action = array('block_time' => $deposit["lifecycle"]['execution_trace']['block_time'], 'id' => $deposit["lifecycle"]["id"]);
                 $account_action['activity'] = 'deposit';
