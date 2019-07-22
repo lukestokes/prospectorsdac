@@ -105,7 +105,7 @@ if ($last_cache_update) {
 }
 
 if ($update_cache) {
-    clearEmptyCacheFiles();
+    clearEmptyCacheFiles($account);
     $last_cache_update = time();
     file_put_contents($cache_file_name,$last_cache_update);
 }

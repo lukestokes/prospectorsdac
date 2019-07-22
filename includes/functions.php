@@ -434,7 +434,7 @@ function getAccountBalanceChanges($account, $token) {
                 }
                 $dbops_index++;
             }
-        }        
+        }
     }
     usort($account_actions, 'block_time_compare');
     $return = array('account_actions' => $account_actions, 'raw_data' => $everything_with_deltas);
@@ -442,15 +442,22 @@ function getAccountBalanceChanges($account, $token) {
 }
 
 
-function clearEmptyCacheFiles() {
+function clearEmptyCacheFiles($account) {
     $files_to_delete = array('../cache/_table_data_account_.json');
     $dir = new DirectoryIterator('../cache');
     foreach ($dir as $fileinfo) {
-        if (!$fileinfo->isDot() && $fileinfo->getExtension() == 'json' && substr($fileinfo->getFilename(), 0, 1) == '_') {
-            $json = file_get_contents('../cache/' . $fileinfo->getFilename());
-            $data = json_decode($json, true);
-            if ($data && array_key_exists('cursor', $data) && $data['cursor'] == '') {
-                $files_to_delete[] = '../cache/' . $fileinfo->getFilename();
+        $filename = $fileinfo->getFilename();
+        if (!$fileinfo->isDot() && $fileinfo->getExtension() == 'json' && substr($filename, 0, 1) == '_') {
+            $checkfile = false;
+            if (strpos($filename, $account) !== FALSE) {
+                $checkfile = true;
+            }
+            if ($checkfile) {
+                $json = file_get_contents('../cache/' . $filename);
+                $data = json_decode($json, true);
+                if ($data && array_key_exists('cursor', $data) && $data['cursor'] == '') {
+                    $files_to_delete[] = '../cache/' . $filename;
+                }
             }
         }
     }
