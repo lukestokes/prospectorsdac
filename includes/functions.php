@@ -213,11 +213,15 @@ function checkPayment($account, $required_amount, $owner, $token) {
     $payment_date = '';
     $payment_amount = 0;
     $q = 'account:eosio.token action:transfer data.to:' . $owner . ' data.from:' . $account . ' auth:' . $account;
-    $params = array('q' => $q, 'sort' => 'desc', 'limit' => 1);
+    // I'd prefer this, but it takes too long to run:
+    //$params = array('q' => $q, 'sort' => 'desc', 'limit' => 1);
+    $params = array('q' => $q, 'start_block' => '29000000');
+
     $json = searchTransactionsInternal($params, $token);
     if ($json) {
         $data = json_decode($json, true);
-        foreach ($data['transactions'] as $transaction) {
+        if (count($data['transactions'])) {
+            $transaction = array_pop($data['transactions']);
             $payment_date = $transaction['lifecycle']['execution_trace']['block_time'];
             foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace) {
                 $payment_with_symbol = $action_trace['act']['data']['quantity'];
@@ -404,30 +408,33 @@ function getAccountBalanceChanges($account, $token) {
         }
     }
     $everything = getActionDataByKey('', 'account/prospectorsc/' . $account, $token);
-    $everything_with_deltas = addDBOPSData($everything, 'account', $token, $account);
-    foreach ($everything_with_deltas as $key => $transaction) {
-        $dbops_index = 0;
-        foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-            $json = json_encode($action_trace['act']['data']);
-            $old_balance = 0;
-            if (isset($transaction['lifecycle']['dbops'][$dbops_index]['old']['data']['balance'])) {
-                $old_balance = $transaction['lifecycle']['dbops'][$dbops_index]['old']['data']['balance'];
+    $everything_with_deltas = array();
+    if (count($everything)) {
+        $everything_with_deltas = addDBOPSData($everything, 'account', $token, $account);
+        foreach ($everything_with_deltas as $key => $transaction) {
+            $dbops_index = 0;
+            foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
+                $json = json_encode($action_trace['act']['data']);
+                $old_balance = 0;
+                if (isset($transaction['lifecycle']['dbops'][$dbops_index]['old']['data']['balance'])) {
+                    $old_balance = $transaction['lifecycle']['dbops'][$dbops_index]['old']['data']['balance'];
+                }
+                $new_balance = $transaction['lifecycle']['dbops'][$dbops_index]['new']['data']['balance'];
+                $change = abs($new_balance - $old_balance);
+                if ($new_balance < $old_balance) {
+                    $change = (0 - $change);
+                }
+                $amount = $change;
+                $account_action = array('block_time' => $transaction["lifecycle"]['execution_trace']['block_time'], 'id' => $transaction["lifecycle"]["id"]);
+                $account_action['activity'] = $action_trace['act']['name'];
+                $account_action['amount'] = $amount;
+                $account_action['details'] = $json;
+                if ($change != 0) {
+                    $account_actions[] = $account_action;
+                }
+                $dbops_index++;
             }
-            $new_balance = $transaction['lifecycle']['dbops'][$dbops_index]['new']['data']['balance'];
-            $change = abs($new_balance - $old_balance);
-            if ($new_balance < $old_balance) {
-                $change = (0 - $change);
-            }
-            $amount = $change;
-            $account_action = array('block_time' => $transaction["lifecycle"]['execution_trace']['block_time'], 'id' => $transaction["lifecycle"]["id"]);
-            $account_action['activity'] = $action_trace['act']['name'];
-            $account_action['amount'] = $amount;
-            $account_action['details'] = $json;
-            if ($change != 0) {
-                $account_actions[] = $account_action;
-            }
-            $dbops_index++;
-        }
+        }        
     }
     usort($account_actions, 'block_time_compare');
     $return = array('account_actions' => $account_actions, 'raw_data' => $everything_with_deltas);
@@ -448,7 +455,7 @@ function clearEmptyCacheFiles() {
         }
     }
     foreach ($files_to_delete as $file) {
-        unlink($file);
+        @unlink($file);
     }
 }
 

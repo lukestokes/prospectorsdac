@@ -48,7 +48,7 @@ if ($account == '') {
         </div>
     </form>
     <p>
-        This tool is (for now) free to try out. If you'd like to refresh the data again, please send 1 EOS to <code>lukeeosproxy</code>, after which you'll be able to refresh the data up to every hour for the next 30 days, at which point you'll have to pay again to continue using it. You can contact me in game as 1lukestokes1.
+        This tool is (for now) free to try out. If you'd like to refresh the data, please send 1 EOS to <code>lukeeosproxy</code>, after which you can refresh the data up to every hour for the next 30 days. After that, just pay again if you'd like to keep getting the latest information. I plan to add more features as time allows. You can contact me in game as 1lukestokes1.
     </p>
     <p>
         Note: The first time you load your page, it may take aa few minutes or even time out.
@@ -64,16 +64,12 @@ if ($account == '') {
 $required_payment_amount = 1; // amount required per month to refresh the data.
 $owner = 'lukeeosproxy';
 
-$cache_file_name = '../cache/_' . $account . '_last_cache_update.txt';
+$cache_file_name = '../cache/last_cache_update_' . $account . '.txt';
 $last_cache_update = @file_get_contents($cache_file_name);
 $update_cache = false;
 if ($last_cache_update) {
     if (isset($_GET['refresh']) && $_GET['refresh'] == 1) {
-        //if ((time() - $last_cache_update) > 3600) {
-        if (true) {
-
-//var_dump($api_credentials['token']);
-
+        if ((time() - $last_cache_update) > 3600) {
             $payment_check = checkPayment($account, $required_payment_amount, $owner, $api_credentials['token']);
             if ($payment_check['paid']) {
                 $update_cache = true;
@@ -263,9 +259,29 @@ foreach ($account_actions as $key => $account_action) {
         print "<table>";
         $details = json_decode($account_action['details'],true);
         foreach ($details as $key => $value) {
+            $key_display = $key;
+            $value_display = $value;
+            if ($key == 'type_id') {
+                $key_display = 'type';
+                $value_display = $types[$value];
+            }
             print "<tr>";
-            print "<td>" . $key . "</td>";
-            print "<td>" . $value . "</td>";
+            print "<td>" . $key_display . "</td>";
+            print "<td>";
+            if (is_array($value)) {
+                foreach ($value as $inner_key => $inner_value) {
+                    $inner_key_display = $inner_key;
+                    $inner_value_display = $inner_value;
+                    if ($inner_key == 'type_id') {
+                        $inner_key_display = 'type';
+                        $inner_value_display = $types[$inner_value];
+                    }
+                    print $inner_key_display . ": " . $inner_value_display . "<br />";
+                }
+            } else {
+                print $value_display;
+            }
+            print "</td>";
             print "</tr>";
         }
         print "</table>";

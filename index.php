@@ -52,6 +52,10 @@ This page currently tracks accounts who were given resources from the DACFactory
 
 At this point, I make no guarutnees about anything regarding how centralized or decentralized this plot will be. For now, I'm just playing a game with my kids and others are free to join me, but I am also using it as an excuse to explore DAC technology in a gamified environment with a montetary component. I also can't vouch for the accuracy of this data. I'm still learning, so please point something out if it looks incorrect.<br />
 
+<br />
+If you'd like to view your account balance history, go here: <a href="/history">https://prospectorsdac.lukestokes.info/history</a><br />
+
+
 <?php
 error_reporting(E_ALL); ini_set('display_errors', 1);
 
@@ -66,7 +70,8 @@ $loc_owner = '1lukestokes1';
 
 $api_credentials = authenticateDFuse();
 
-$last_cache_update = @file_get_contents('cache/last_cache_update.txt');
+$cache_file_name = 'cache/last_cache_update.txt';
+$last_cache_update = @file_get_contents($cache_file_name);
 $update_cache = false;
 if ($last_cache_update) {
     if (isset($_GET['refresh']) && $_GET['refresh'] == 1) {
@@ -83,7 +88,7 @@ if ($last_cache_update) {
 if ($update_cache) {
     clearEmptyCacheFiles();
     $last_cache_update = time();
-    file_put_contents('cache/last_cache_update.txt',$last_cache_update);
+    file_put_contents($cache_file_name,$last_cache_update);
 }
 
 $CachedDate = new DateTime();
