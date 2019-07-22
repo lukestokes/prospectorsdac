@@ -4,7 +4,7 @@ include '../includes/functions.php';
 $account = '';
 if (array_key_exists('account', $_GET)) {
     if (strlen(strip_tags($_GET['account'])) <= 12) {
-        $account = strip_tags($_GET['account']);
+        $account = strtolower(strip_tags($_GET['account']));
     }
 }
 ?>
