@@ -50,7 +50,7 @@ This page currently tracks accounts who were given resources from the DACFactory
     <li>Expand these tools for others unions/DACs within Prospectors (and/or consider joining an existing group)</li>
 </ul>
 
-At this point, I make no guarutnees about anything regarding how centralized or decentralized this plot will be. For now, I'm just playing a game with my kids and others are free to join me, but I am also using it as an excuse to explore DAC technology in a gamified environment with a montetary component. I also can't vouch for the accuracy of this data. I'm still learning, so please point something out if it looks incorrect.<br />
+At this point, I make no guarantees about anything regarding how centralized or decentralized this plot will be. For now, I'm just playing a game with my kids and others are free to join me, but I am also using it as an excuse to explore DAC technology in a gamified environment with a monetary component. I also can't vouch for the accuracy of this data. I'm still learning, so please point something out if it looks incorrect.<br />
 
 <br />
 If you'd like to view your account balance history, go here: <a href="/history/">https://prospectorsdac.lukestokes.info/history/</a><br />
