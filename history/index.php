@@ -51,7 +51,7 @@ if ($account == '') {
         This tool is (for now) free to try out. If you'd like to refresh the data, please send 1 EOS to <code>lukeeosproxy</code>, after which you can refresh the data up to every hour for the next 30 days. After that, just pay again if you'd like to keep getting the latest information. I plan to add more features as time allows. You can contact me in game as 1lukestokes1.
     </p>
     <p>
-        Note: The first time you load your page, it may take aa few minutes or even time out.
+        Note: The first time you load your page, it may take a few minutes or even time out.
     </p>
 </div>
 <?php
