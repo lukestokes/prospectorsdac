@@ -33,6 +33,36 @@ $types = array(
 30 => 'wagonwheel'
 );
 
+function getActivityDescription($activity, $amount) {
+    $activities = array(
+        'doorder' => 'Completed an Order',
+        'mkpurchase_buy' => 'Bought Stuff',
+        'mkpurchase_sell' => 'Sold Stuff',
+        'rentloc' => 'Paid Rent',
+        'deposit' => 'Deposited PGL',
+        'withdraw' => 'Withdrew PGL',
+        'mkmineord' => 'Created a Mining Order',
+        'rmorder' => 'Removed an Order',
+        'mkbuyord' => 'Created a Buy Order',
+        'mkpurchord' => 'Created a Purchase Order',
+        'mkbuildord' => 'Created a Build Order',
+        'mktransord' =>  'Created a Transfer Order',
+        'mvstorgold' => 'Converted Mined Gold',
+    );
+    $activity_key = $activity;
+    if ($activity == 'mkpurchase') {
+        if ($amount > 0) {
+            $activity_key .= '_sell';
+        } else {
+            $activity_key .= '_buy';
+        }
+    }
+    if (array_key_exists($activity_key, $activities)) {
+        return $activities[$activity_key];
+    }
+    return $activity;
+}
+
 function formatAmount($amount, $type = 0, $type_text = '') {
     global $types;
     $formatted_amount = $amount;

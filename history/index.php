@@ -230,7 +230,7 @@ foreach ($account_actions as $key => $account_action) {
     print "<td class=\"" . $font_class . "\">";
     print $amount_display . "</td>";
     print "<td>";
-    print $account_action['activity'];
+    print getActivityDescription($account_action['activity'],$account_action['amount']);
     if ($from_referrer != '') {
         print " (referral: " . $from_referrer . ")";
         if (!array_key_exists($from_referrer, $referral_totals)) {
