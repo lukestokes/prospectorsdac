@@ -19,6 +19,14 @@ if (array_key_exists('account', $_GET)) {
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 
     <title>Prospectors.io Account Balance History</title>
+
+
+<style>
+.nth-table-number tr:nth-child(4n-1) {
+    background: rgba(0,0,0,.05);
+}
+</style>
+
   </head>
   <body>
     <center>
@@ -216,7 +224,7 @@ foreach ($account_actions as $key => $account_action) {
         $referral_totals[$from_referrer] += $account_action['amount'];
         $referral_gains += $account_action['amount'];
     }
-    $transaction['time'] = "<a href=\"https://eosq.app/tx/" . $account_action['id'] . "\">" . $account_action['block_time'] . "</a>";
+    $transaction['time'] = "<a target=\"_new\" href=\"https://eosq.app/tx/" . $account_action['id'] . "\">" . $account_action['block_time'] . "</a>";
 
     $details_display = '';
     if ($account_action['details'] != '') {
@@ -255,7 +263,7 @@ foreach ($account_actions as $key => $account_action) {
 
 ?>
 <div class="container">
-<table class="table table-striped">
+<table class="table nth-table-number">
     <tr>
         <th>Day</th>
         <th class="text-right">Balance</th>
@@ -296,7 +304,7 @@ foreach ($daily_summary as $day => $summary) {
         if ($transaction['details'] != '') {
     ?>
 <p>
-  <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#details_<?php print $day . $key; ?>" aria-expanded="false" aria-controls="details_<?php print $day . $key; ?>">Toggle</button>
+  <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="collapse" data-target="#details_<?php print $day . $key; ?>" aria-expanded="false" aria-controls="details_<?php print $day . $key; ?>">Toggle</button>
 </p>
 <div class="collapse" id="details_<?php print $day . $key; ?>">
   <div class="card card-body">
@@ -319,7 +327,7 @@ print "</table>";
 print "</td>";
 print "</tr>";
 
-    print "<tr>";
+    print "<tr class=\"highlight\">";
     print "<td>" . $day . "</td>";
     print "<td class=\"text-right\">" . number_format($summary['balance']) . "</td>";
     $font_class = 'text-danger';
@@ -365,7 +373,7 @@ foreach ($transfers as $transfer) {
         $amount_display = "+" . number_format($change);
     }
     print "<td class=\"text-right " . $font_class . "\">" . $amount_display . "</td>";
-    print "<td><a href=\"https://eosq.app/tx/" . $transfer['id'] . "\">" . $transfer['block_time'] . "</a></td>";
+    print "<td><a  target=\"_new\" href=\"https://eosq.app/tx/" . $transfer['id'] . "\">" . $transfer['block_time'] . "</a></td>";
     print "</tr>";
 }
 print "</table>";
