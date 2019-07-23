@@ -157,13 +157,13 @@ $referral_gains = 0;
 $daily_summary = array();
 $daily_balance = 0;
 $referral_totals = array();
+
+$transfers = array();
 ?>
 
 </div>
 
 <?php
-
-$hide_referrals = true;
 
 foreach ($account_actions as $key => $account_action) {
     // daily summary
@@ -200,6 +200,7 @@ foreach ($account_actions as $key => $account_action) {
         }
     }
     if (in_array($account_action['activity'], array('deposit','withdraw'))) {
+        $transfers[] = $account_action;
         $net_profits += $account_action['amount'];
     }
     $balance += $account_action['amount'];
@@ -336,25 +337,49 @@ print "</tr>";
 ?>
 <tr>
     <td><strong>Current Balance:</strong></td>
-    <td><?php print number_format($daily_balance); ?></td>
-    <td colspan="2"><br/></td>
+    <td class="text-right"><?php print number_format($daily_balance); ?></td>
+    <td colspan="3"><br/></td>
 </tr>
 </table>
 
-<?php
+<table class="table table-striped">
+<tr>
+    <th class="text-right">Net</th>
+    <th class="text-right">Change</th>
+    <th>Transfer Time</th>
+</tr>
 
-print "<h2>Net Profit/Loss: " . number_format((0-$net_profits)) . "</h2><br /><br />";
+<?php
+print "<h2>Net Profit/Loss: " . number_format((0-$net_profits)) . "</h2>";
+
+$net_balance = 0;
+foreach ($transfers as $transfer) {
+    $change = (0-$transfer['amount']);
+    $net_balance += $change;
+    print "<tr>";
+    print "<td class=\"text-right\">" . number_format($net_balance) . "</td>";
+    $font_class = 'text-danger';
+    $amount_display = number_format($change);
+    if ($change > 0) {
+        $font_class = 'text-success';
+        $amount_display = "+" . number_format($change);
+    }
+    print "<td class=\"text-right " . $font_class . "\">" . $amount_display . "</td>";
+    print "<td><a href=\"https://eosq.app/tx/" . $transfer['id'] . "\">" . $transfer['block_time'] . "</a></td>";
+    print "</tr>";
+}
+print "</table>";
 
 arsort($referral_totals);
 
 if (count($referral_totals)) {
     print "<h2>Total Referral Gains: " . number_format($referral_gains) . "</h2>";
 
-    print "<table class=\"table table-striped\">";
+    print "<table class=\"table table-striped col-md-6\">";
     foreach ($referral_totals as $referrer => $amount) {
         print "<tr>";
         print "<td>" . $referrer . "</td>";
-        print "<td>" . number_format($amount) . "</td>";
+        print "<td class=\"text-right\">" . number_format($amount) . "</td>";
         print "</tr>";
     }
     print "</table>";
