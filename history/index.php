@@ -58,24 +58,23 @@ if ($account == '') {
 <?php
 
 if (array_key_exists('stats', $_GET) && $_GET['stats'] == "1") {
-    $stat_data = '';
-    $accounts_checked = 0;
-    $paid_accounts = 0;
+    $users = array();
     foreach (glob(__DIR__ . '/../cache/last_cache_update_*.txt') as $filename) {
-        $accounts_checked++;
         $eos_account = str_replace(array(__DIR__ . '/../cache/last_cache_update_','.txt'), array("",""), $filename);
         $timestamp = file_get_contents($filename);
-        //$payment_check = checkPayment($eos_account, $required_payment_amount, $owner, $api_credentials['token']);
-        $paid = "";
-        //if ($payment_check['paid']) {
-        //    $paid_accounts++;
-        //    $paid = "<strong>PAID</strong> ";
-        //}
-        $stat_data .= $paid . $eos_account . ", last updated " . date('Y-m-d H:i:s',$timestamp) . "<br />\n";
+        $users[$eos_account] = $timestamp;
     }
-    //print "<h1>Stats:</h1><h2>Accounts Checked: " . $accounts_checked . ", " . $paid_accounts . " Paid</h2>";
-    print "<h1>Stats:</h1><h2>Accounts Checked: " . $accounts_checked . "</h2>";
-    print $stat_data . "<br /><br /><br />\n";
+    arsort($users);
+    print "<h2>" . count($users) . " Users</h2>";
+    print "<table class=\"table table-striped\">";
+    print "<tr><th>Account</th><th>Last Updated</th></tr>";
+    foreach ($users as $key => $value) {
+        print "<tr>";
+        print "<td><a href=\"/history/?account=" . $key . "\">" . $key . "</a></td>";
+        print "<td>" . date('Y-m-d H:i:s',$value) . "</td>";
+        print "</tr>";
+    }
+    print "</table>";
 }
 
 ?>
