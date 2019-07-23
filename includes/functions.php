@@ -518,6 +518,56 @@ function addTransferData($transfers,$transfers_by_player,$player,$worker_number)
     return $transfers_by_player;
 }
 
+function getGoldToTokenValue($gold,$token_prices) {
+    if ($token_prices['EOS'] && $token_prices['PGL']) {
+        $PGL = ($gold/1000);
+        $EOS = $PGL * $token_prices['PGL'];
+        $USD = $EOS * $token_prices['EOS'];
+        return " <sub>(PGL: " . $PGL . ", EOS: " . number_format($EOS,4) . ", USD: " . money_format("%n",$USD) . ")</sub>";
+    }
+    return "";
+}
+
+function getTokenPrices($marketcapone_access_key) {
+    $filename = __DIR__ . '/../cache/_token_prices.json';
+    $json = @file_get_contents($filename);
+    $use_cached_data = false;
+    if ($json) {
+        $use_cached_data = true;
+        if (time() - filemtime($filename) > (60*1)) { // only get fresh prices every minute
+            $use_cached_data = false;
+        }
+    }
+    if ($use_cached_data) {
+        //print "Use Cached: " . (time() - filemtime($filename)) . "<br />";
+        $token_prices = json_decode($json, true);
+        return $token_prices;
+    }
+    $token_prices = array('EOS' => 0, 'PGL' => 0);
+    $header = array('MCO-AUTH' => $marketcapone_access_key);
+    $url = 'https://marketcap.one/api/1.0/token/';
+    $json = request('GET', $url . 'eosio.token', $header, array());
+    if ($json) {
+        $eos_token_data = json_decode($json, true);
+        if (array_key_exists('status', $eos_token_data) && $eos_token_data['status'] == '200') {
+            $token_prices['EOS'] = number_format($eos_token_data['data']['current_price'],4);
+        }
+    }
+    $json = request('GET', $url . 'prospectorsg', $header, array());
+    if ($json) {
+        $pgl_token_data = json_decode($json, true);
+        if (array_key_exists('status', $pgl_token_data) && $pgl_token_data['status'] == '200') {
+            $token_prices['PGL'] = number_format($pgl_token_data['data']['current_price'],4);
+        }
+    }
+    if ($token_prices['EOS'] && $token_prices['PGL']) {
+        $json = json_encode($token_prices);
+        file_put_contents($filename,$json);
+    }
+
+    return $token_prices;
+}
+
 function authenticateDFuse() {
     $filename = __DIR__ . '/../.api_credentials.json';
     $json = file_get_contents($filename) or die("<br/><br/><strong>Authentication file .api_credentials.json not found.</strong>");

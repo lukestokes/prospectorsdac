@@ -1,5 +1,6 @@
 <?php
 error_reporting(E_ALL); ini_set('display_errors', 1);
+setlocale(LC_MONETARY,"en_US");
 include '../includes/functions.php';
 $account = '';
 if (array_key_exists('account', $_GET)) {
@@ -43,6 +44,8 @@ if (array_key_exists('account', $_GET)) {
 <?php
 $api_credentials = authenticateDFuse();
 
+$token_prices = getTokenPrices($api_credentials['marketcapone_access_key']);
+
 if ($account == '') {
 ?>
 <div class="container">
@@ -71,6 +74,15 @@ if ($account == '') {
 ?>
 <div class="container">
 <?php
+
+if ($token_prices['EOS'] && $token_prices['PGL']) {
+    ?>
+    <a href="https://marketcap.one/">
+    <span class="badge badge-pill badge-primary">PGL <span class="badge badge-light"><?php print $token_prices['PGL']; ?> EOS</span></span>
+    <span class="badge badge-pill badge-primary">EOS <span class="badge badge-light">$<?php print $token_prices['EOS']; ?></span></span>
+    </a>
+    <?php
+}
 
 $required_payment_amount = 1; // amount required per month to refresh the data.
 $owner = 'lukeeosproxy';
@@ -346,7 +358,7 @@ print "</tr>";
 <tr>
     <td><strong>Current Balance:</strong></td>
     <td class="text-right"><?php print number_format($daily_balance); ?></td>
-    <td colspan="3"><br/></td>
+    <td colspan="3"><?php print getGoldToTokenValue($daily_balance,$token_prices); ?></td>
 </tr>
 </table>
 
@@ -358,7 +370,7 @@ print "</tr>";
 </tr>
 
 <?php
-print "<h2>Net Profit/Loss: " . number_format((0-$net_profits)) . "</h2>";
+print "<h2>Net Profit/Loss: " . number_format((0-$net_profits)) . getGoldToTokenValue((0-$net_profits),$token_prices) . "</h2>";
 
 $net_balance = 0;
 foreach ($transfers as $transfer) {
@@ -381,7 +393,7 @@ print "</table>";
 arsort($referral_totals);
 
 if (count($referral_totals)) {
-    print "<h2>Total Referral Gains: " . number_format($referral_gains) . "</h2>";
+    print "<h2>Total Referral Gains: " . number_format($referral_gains) . getGoldToTokenValue($referral_gains,$token_prices) . "</h2>";
 
     print "<table class=\"table table-striped col-md-6\">";
     foreach ($referral_totals as $referrer => $amount) {
