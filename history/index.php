@@ -216,7 +216,7 @@ foreach ($account_actions as $key => $account_action) {
     $BlockTime = getDateTimeFromBlockTime($account_action['block_time']);
     $block_day = $BlockTime->format('Y-m-d');
     if (!array_key_exists($block_day, $daily_summary)) {
-        $daily_summary[$block_day] = array('balance' => $daily_balance, 'change' => 0, 'transactions' => array());
+        $daily_summary[$block_day] = array('balance' => $daily_balance, 'change' => 0, 'transfers' => 0, 'transactions' => array());
     }
     $daily_balance += $account_action['amount'];
     $daily_summary[$block_day]['change'] += $account_action['amount'];
@@ -248,6 +248,7 @@ foreach ($account_actions as $key => $account_action) {
     if (in_array($account_action['activity'], array('deposit','withdraw'))) {
         $transfers[] = $account_action;
         $net_profits += $account_action['amount'];
+        $daily_summary[$block_day]['transfers'] += $account_action['amount'];
     }
     $balance += $account_action['amount'];
     $transaction['is_referral'] = ($from_referrer != '');
@@ -368,14 +369,23 @@ print "</tr>";
     print "<tr class=\"highlight\">";
     print "<td>" . $day . "</td>";
     print "<td class=\"text-right\">" . number_format($summary['balance']) . "</td>";
+    $transfers_display = number_format($summary['transfers']);
+    if ($summary['transfers'] > 0) {
+        $transfers_display = "+" . number_format($summary['transfers']);
+    }
+    $amount = $summary['change'] - $summary['transfers'];
     $font_class = 'text-danger';
-    $amount_display = number_format($summary['change']);
-    if ($summary['change'] > 0) {
+    $amount_display = number_format($amount);
+    if ($amount > 0) {
         $font_class = 'text-success';
-        $amount_display = "+" . number_format($summary['change']);
+        $amount_display = "+" . number_format($amount);
     }
     print "<td class=\"text-right " . $font_class . "\">";
-    print $amount_display . "</td>";
+    print $amount_display;
+    if ($summary['transfers'] != 0) {
+        print "<br /><small>(" . $transfers_display . " in transfers)</small>";
+    }
+    print "</td>";
     print "<td class=\"text-right\">" . count($summary['transactions']) . "</td>";
     print "<td class=\"text-right\"><button class=\"btn btn-primary\" type=\"button\" data-toggle=\"collapse\" data-target=\"#transactions_" . $day . "\" aria-expanded=\"false\" aria-controls=\"#transactions_" . $day . "\">Toggle</button></td>";
     print "</tr>";
