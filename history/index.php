@@ -65,15 +65,16 @@ if (array_key_exists('stats', $_GET) && $_GET['stats'] == "1") {
         $accounts_checked++;
         $eos_account = str_replace(array(__DIR__ . '/../cache/last_cache_update_','.txt'), array("",""), $filename);
         $timestamp = file_get_contents($filename);
-        $payment_check = checkPayment($eos_account, $required_payment_amount, $owner, $api_credentials['token']);
+        //$payment_check = checkPayment($eos_account, $required_payment_amount, $owner, $api_credentials['token']);
         $paid = "";
-        if ($payment_check['paid']) {
-            $paid_accounts++;
-            $paid = "<strong>PAID</strong> ";
-        }
+        //if ($payment_check['paid']) {
+        //    $paid_accounts++;
+        //    $paid = "<strong>PAID</strong> ";
+        //}
         $stat_data .= $paid . $eos_account . ", last updated " . date('Y-m-d H:i:s',$timestamp) . "<br />\n";
     }
-    print "<h1>Stats:</h1><h2>Accounts Checked: " . $accounts_checked . ", " . $paid_accounts . " Paid</h2>";
+    //print "<h1>Stats:</h1><h2>Accounts Checked: " . $accounts_checked . ", " . $paid_accounts . " Paid</h2>";
+    print "<h1>Stats:</h1><h2>Accounts Checked: " . $accounts_checked . "</h2>";
     print $stat_data . "<br /><br /><br />\n";
 }
 
