@@ -113,12 +113,6 @@ if ($update_cache) {
     file_put_contents($cache_file_name,$last_cache_update);
 }
 
-?>
-    <form method="GET" action="">
-        <button type="submit" class="btn btn-primary">Reset</button>
-    </form>
-<?php
-
 $my_workers = array();
 $my_referrals = array();
 
@@ -136,12 +130,17 @@ foreach ($all_players['rows'] as $index => $player) {
     }
 }
 
+if (!count($my_workers)) {
+    ?>
+    <div class="alert alert-warning" role="alert">
+      Prospectors account <strong><?php print $account; ?></strong> not found.
+    </div>
+    <?php
+} else {
+
 $result = getAccountBalanceChanges($account, $api_credentials['token']);
 $account_actions = $result['account_actions'];
 $raw_data = $result['raw_data'];
-
-//pdump($raw_data[288]);
-
 
 foreach ($account_actions as $key => $account_action) {
     foreach ($raw_data as $transaction) {
@@ -152,35 +151,33 @@ foreach ($account_actions as $key => $account_action) {
     }
 }
 
-
 $net_profits = 0;
 $balance = 0;
 $referral_gains = 0;
-
+$daily_summary = array();
+$daily_balance = 0;
 $referral_totals = array();
 ?>
 
-<p>
-  <button class="btn btn-primary" type="button" data-toggle="collapse" data-target=".referrals">Toggle Referrals</button>
-  <button class="btn btn-primary" type="button" data-toggle="collapse" data-target=".actions">Toggle Actions</button>
-</p>
-
 </div>
 
-<div class="container">
-<table class="table table-striped" id="balance_history">
-    <tr>
-        <th>Balance</th>
-        <th>Change</th>
-        <th>Activity</th>
-        <th>Time</th>
-        <th>Details</th>
-    </tr>
 <?php
 
 $hide_referrals = true;
 
 foreach ($account_actions as $key => $account_action) {
+    // daily summary
+    $BlockTime = getDateTimeFromBlockTime($account_action['block_time']);
+    $block_day = $BlockTime->format('Y-m-d');
+    if (!array_key_exists($block_day, $daily_summary)) {
+        $daily_summary[$block_day] = array('balance' => $daily_balance, 'change' => 0, 'transactions' => array());
+    }
+    $daily_balance += $account_action['amount'];
+    $daily_summary[$block_day]['change'] += $account_action['amount'];
+    $daily_summary[$block_day]['balance'] = $daily_balance;
+
+    // transaction details
+    $transaction = array();
     // check if this was us or a referral
     $from_referrer = '';
     if (array_key_exists('transaction_details', $account_action)) {
@@ -201,66 +198,29 @@ foreach ($account_actions as $key => $account_action) {
                 }
             }
         }
-/*
-        if ($account_action['transaction_details']['lifecycle']['execution_trace']['id'] == 'dd1dc180a12748320da5a20c4eab9540bef71160319cf4aca661e96aee6ca154') {
-            pdump($account_action);
-        }
-*/
     }
-
-    $balance += $account_action['amount'];
-
-    $row_class = "collapse show actions";
-    if ($from_referrer != '') {
-        $row_class = "collapse referrals";
-    }
-
     if (in_array($account_action['activity'], array('deposit','withdraw'))) {
         $net_profits += $account_action['amount'];
-        $row_class = "";
     }
-
-    print "<tr class=\"" . $row_class . "\">";
-    print "<td>" . $balance . "</td>";
-
-    $amount_display = number_format($account_action['amount']);
-    $font_class = 'text-success';
-    if ($account_action['amount'] > 0) {
-        $amount_display = "+" . number_format($account_action['amount']);
-    } else {
-        $font_class = 'text-danger';
-    }
-    print "<td class=\"" . $font_class . "\">";
-    print $amount_display . "</td>";
-    print "<td>";
-    print getActivityDescription($account_action['activity'],$account_action['amount']);
+    $balance += $account_action['amount'];
+    $transaction['is_referral'] = ($from_referrer != '');
+    $transaction['balance'] = $balance;
+    $transaction['amount'] = $account_action['amount'];
+    $transaction['activity'] = getActivityDescription($account_action['activity'],$account_action['amount']);
     if ($from_referrer != '') {
-        print " (referral: " . $from_referrer . ")";
+        $transaction['activity'] = "Referral " . $from_referrer . " " . $transaction['activity'];
         if (!array_key_exists($from_referrer, $referral_totals)) {
             $referral_totals[$from_referrer] = 0;
         }
         $referral_totals[$from_referrer] += $account_action['amount'];
         $referral_gains += $account_action['amount'];
     }
-    print "</td>";
-    print "<td><a href=\"https://eosq.app/tx/" . $account_action['id'] . "\">" . $account_action['block_time'] . "</a></td>";
+    $transaction['time'] = "<a href=\"https://eosq.app/tx/" . $account_action['id'] . "\">" . $account_action['block_time'] . "</a>";
 
-?>
-<td>
-    <?php
-        if ($account_action['details'] != '') {
-    ?>
-
-<p>
-  <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#details_<?php print $key; ?>" aria-expanded="false" aria-controls="details_<?php print $key; ?>">
-    Show Details
-  </button>
-</p>
-<div class="collapse" id="details_<?php print $key; ?>">
-  <div class="card card-body">
-    <?php
-        print "<table>";
+    $details_display = '';
+    if ($account_action['details'] != '') {
         $details = json_decode($account_action['details'],true);
+        $details_display .= "<table>";
         foreach ($details as $key => $value) {
             $key_display = $key;
             $value_display = $value;
@@ -268,9 +228,9 @@ foreach ($account_actions as $key => $account_action) {
                 $key_display = 'type';
                 $value_display = $types[$value];
             }
-            print "<tr>";
-            print "<td>" . $key_display . "</td>";
-            print "<td>";
+            $details_display .= "<tr>";
+            $details_display .= "<td>" . $key_display . "</td>";
+            $details_display .= "<td>";
             if (is_array($value)) {
                 foreach ($value as $inner_key => $inner_value) {
                     $inner_key_display = $inner_key;
@@ -279,15 +239,68 @@ foreach ($account_actions as $key => $account_action) {
                         $inner_key_display = 'type';
                         $inner_value_display = $types[$inner_value];
                     }
-                    print $inner_key_display . ": " . $inner_value_display . "<br />";
+                    $details_display .= $inner_key_display . ": " . $inner_value_display . "<br />";
                 }
             } else {
-                print $value_display;
+                $details_display .= $value_display;
             }
-            print "</td>";
-            print "</tr>";
         }
-        print "</table>";
+        $details_display .= "</table>";
+    }
+    $transaction['details'] = $details_display;
+
+    $daily_summary[$block_day]['transactions'][] = $transaction;
+}
+
+?>
+<div class="container">
+<table class="table table-striped">
+    <tr>
+        <th>Day</th>
+        <th class="text-right">Balance</th>
+        <th class="text-right">Change</th>
+        <th class="text-right">Transaction Count</th>
+        <th class="text-right">Show Transactions</th>
+    </tr>
+<?php
+foreach ($daily_summary as $day => $summary) {
+    print "<tr class=\"collapse\" id=\"transactions_" . $day . "\">";
+    print "<td colspan=\"5\">";
+    ?>
+    <table class="table table-striped">
+    <tr>
+        <th class="text-right">Balance</th>
+        <th class="text-right">Change</th>
+        <th>Activity</th>
+        <th>Time</th>
+        <th class="text-right">Show Details</th>
+    </tr>
+    <?php
+    foreach ($summary['transactions'] as $key => $transaction) {
+        print "<tr>";
+        print "<td class=\"text-right\">" . number_format($transaction['balance']) . "</td>";
+        $font_class = 'text-danger';
+        $amount_display = number_format($transaction['amount']);
+        if ($transaction['amount'] > 0) {
+            $font_class = 'text-success';
+            $amount_display = "+" . number_format($transaction['amount']);
+        }
+        print "<td class=\"text-right " . $font_class . "\">";
+        print $amount_display . "</td>";
+        print "<td>" . $transaction['activity'] . "</td>";
+        print "<td>" . $transaction['time'] . "</td>";
+?>
+<td class="text-right">
+    <?php
+        if ($transaction['details'] != '') {
+    ?>
+<p>
+  <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#details_<?php print $day . $key; ?>" aria-expanded="false" aria-controls="details_<?php print $day . $key; ?>">Toggle</button>
+</p>
+<div class="collapse" id="details_<?php print $day . $key; ?>">
+  <div class="card card-body">
+    <?php
+    print $transaction['details'];
     ?>
   </div>
 </div>
@@ -302,9 +315,35 @@ foreach ($account_actions as $key => $account_action) {
     print "</tr>";
 }
 print "</table>";
+print "</td>";
+print "</tr>";
+
+    print "<tr>";
+    print "<td>" . $day . "</td>";
+    print "<td class=\"text-right\">" . number_format($summary['balance']) . "</td>";
+    $font_class = 'text-danger';
+    $amount_display = number_format($summary['change']);
+    if ($summary['change'] > 0) {
+        $font_class = 'text-success';
+        $amount_display = "+" . number_format($summary['change']);
+    }
+    print "<td class=\"text-right " . $font_class . "\">";
+    print $amount_display . "</td>";
+    print "<td class=\"text-right\">" . count($summary['transactions']) . "</td>";
+    print "<td class=\"text-right\"><button class=\"btn btn-primary\" type=\"button\" data-toggle=\"collapse\" data-target=\"#transactions_" . $day . "\" aria-expanded=\"false\" aria-controls=\"#transactions_" . $day . "\">Toggle</button></td>";
+    print "</tr>";
+}
+?>
+<tr>
+    <td><strong>Current Balance:</strong></td>
+    <td><?php print number_format($daily_balance); ?></td>
+    <td colspan="2"><br/></td>
+</tr>
+</table>
+
+<?php
 
 print "<h2>Net Profit/Loss: " . number_format((0-$net_profits)) . "</h2><br /><br />";
-
 
 arsort($referral_totals);
 
@@ -327,10 +366,20 @@ print "Data last updated: <strong>" . $CachedDate->format('Y-m-d H:i:s T') . "</
 
 print "</div>";
 
-}
+} // account found
 
 ?>
+    <div class="container">
+        <form method="GET" action="">
+            <button type="submit" class="btn btn-primary">Select Different Account</button>
+        </form>
+        <br /><br /><br /><br /><br />
+    </div>
+<?php
 
+} // $account set
+
+?>
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>

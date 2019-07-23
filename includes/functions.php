@@ -239,6 +239,14 @@ function searchTransactions($q, $token, $cursor="") {
     return $json;
 }
 
+function getDateTimeFromBlockTime($block_time_string) {
+    $block_time_string_format = "Y-m-d H:i:s";
+    $block_time_string = str_replace("T", " ", $block_time_string);
+    $block_time_string = str_replace(".5", "", $block_time_string);
+    $BlockTime = DateTime::createFromFormat($block_time_string_format, $block_time_string);
+    return $BlockTime;
+}
+
 function checkPayment($account, $required_amount, $owner, $token) {
     $paid = false;
     $payment_date = '';
@@ -260,11 +268,7 @@ function checkPayment($account, $required_amount, $owner, $token) {
                     $payment_amount = str_replace(" EOS", "", $payment_with_symbol);
                     if ($payment_amount >= $required_amount) {
                         $now = new DateTime();
-                        $block_time_string_format = "Y-m-d H:i:s";
-                        $block_time_string = $payment_date;
-                        $block_time_string = str_replace("T", " ", $block_time_string);
-                        $block_time_string = str_replace(".5", "", $block_time_string);
-                        $paymentTime = DateTime::createFromFormat($block_time_string_format, $block_time_string);
+                        $paymentTime = getDateTimeFromBlockTime($payment_date);
                         $interval = $now->diff($paymentTime);
                         if ($interval->days <= 30) {
                             $paid = true;
