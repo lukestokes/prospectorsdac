@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL); ini_set('display_errors', 1);
-setlocale(LC_MONETARY,"en_US");
+setlocale(LC_MONETARY,"en_US.utf8");
 include '../includes/functions.php';
 $account = '';
 if (array_key_exists('account', $_GET)) {
