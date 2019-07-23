@@ -2,6 +2,10 @@
 error_reporting(E_ALL); ini_set('display_errors', 1);
 setlocale(LC_MONETARY,"en_US.utf8");
 include '../includes/functions.php';
+
+$required_payment_amount = 1; // amount required per month to refresh the data.
+$owner = 'lukeeosproxy';
+
 $account = '';
 if (array_key_exists('account', $_GET)) {
     if (strlen(strip_tags($_GET['account'])) <= 12) {
@@ -42,6 +46,7 @@ if (array_key_exists('account', $_GET)) {
     </center>
 
 <?php
+
 $api_credentials = authenticateDFuse();
 
 $token_prices = getTokenPrices($api_credentials['marketcapone_access_key']);
@@ -49,6 +54,30 @@ $token_prices = getTokenPrices($api_credentials['marketcapone_access_key']);
 if ($account == '') {
 ?>
 <div class="container">
+
+<?php
+
+if (array_key_exists('stats', $_GET) && $_GET['stats'] == "1") {
+    $stat_data = '';
+    $accounts_checked = 0;
+    $paid_accounts = 0;
+    foreach (glob(__DIR__ . '/../cache/last_cache_update_*.txt') as $filename) {
+        $accounts_checked++;
+        $eos_account = str_replace(array(__DIR__ . '/../cache/last_cache_update_','.txt'), array("",""), $filename);
+        $timestamp = file_get_contents($filename);
+        $payment_check = checkPayment($eos_account, $required_payment_amount, $owner, $api_credentials['token']);
+        $paid = "";
+        if ($payment_check['paid']) {
+            $paid_accounts++;
+            $paid = "<strong>PAID</strong> ";
+        }
+        $stat_data .= $paid . $eos_account . ", last updated " . date('Y-m-d H:i:s',$timestamp) . "<br />\n";
+    }
+    print "<h1>Stats:</h1><h2>Accounts Checked: " . $accounts_checked . ", " . $paid_accounts . " Paid</h2>";
+    print $stat_data . "<br /><br /><br />\n";
+}
+
+?>
     <form method="GET" action="">
         <div class="form-group">
                 <label for="account">Prospectors (EOS) Account Name</label>
@@ -83,9 +112,6 @@ if ($token_prices['EOS'] && $token_prices['PGL']) {
     </a>
     <?php
 }
-
-$required_payment_amount = 1; // amount required per month to refresh the data.
-$owner = 'lukeeosproxy';
 
 $cache_file_name = __DIR__ . '/../cache/last_cache_update_' . $account . '.txt';
 $last_cache_update = @file_get_contents($cache_file_name);
