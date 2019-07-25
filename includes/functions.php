@@ -133,7 +133,7 @@ function request($method, $url, $header, $params) {
     //var_dump($opts);
     //var_dump($url);
     $context = stream_context_create($opts);
-    $data = file_get_contents($url, false, $context);
+    $data = @file_get_contents($url, false, $context);
     return $data;
 }
 
