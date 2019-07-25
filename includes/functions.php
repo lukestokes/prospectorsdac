@@ -84,11 +84,14 @@ function block_time_compare($a, $b)
 }
 
 function pdump($var) {
-    print "<pre>";
+    print "<textarea rows=\"10\" cols=\"100\">";
     var_dump($var);
-    print "</pre>";
+    print "</textarea>";
 }
 
+function console_log($string) {
+    print "<script>console.log(\"" . $string . "\");</script>";
+}
 
 // method should be "GET", "PUT", etc..
 function request($method, $url, $header, $params) {
@@ -108,7 +111,11 @@ function request($method, $url, $header, $params) {
             $url .= '?'.implode('&', $params_array);            
         }
         if ($method == "POST") {
-            $data = json_encode($params);
+            if (is_array($params)) {
+                $data = json_encode($params);
+            } else {
+                $data = $params;
+            }
             $opts['http']['content'] = $data;
             $header['Content-Length'] = strlen($data);
         }
@@ -130,119 +137,11 @@ function request($method, $url, $header, $params) {
     return $data;
 }
 
-
-function getActionData($action, $actor, $token, $cursor="") {
-    $json = getJSONCached($action, $actor, $token, $cursor);
-    $previous_hash = md5($json);
-    $data = json_decode($json,true);
-    $transactions = $data['transactions'];
-    if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
-        $cursor = $data['cursor'];
-        $keep_fetching = true;
-        while($keep_fetching) {
-            $more_json = getJSONCached($action, $actor, $token, $cursor);
-            $hash = md5($more_json);
-            $more_data = json_decode($more_json,true);
-            if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-                if ($cursor == $more_data['cursor'] && $hash == $previous_hash) {
-                    $keep_fetching = false;
-                } else {
-                    $transactions = array_merge($transactions,$more_data['transactions']);
-                }
-                $cursor = $more_data['cursor'];
-                $previous_hash = $hash;
-            } else {
-                $keep_fetching = false;
-            }
-        }
-    }
-    return $transactions;
-}
-
-function getJSONCached($action, $actor, $token, $cursor="") {
-    $filename = __DIR__ . '/../cache/_' . $action . '_' . $actor . '_' . $cursor . '.json';
-    //print "Filename: $filename";
-    $json = @file_get_contents($filename);
-    if ($json) {
-        return $json;
-    }
-    $json = getJSON($action, $actor, $token, $cursor);
-    file_put_contents($filename,$json);
-    return $json;
-}
-
-function getJSON($action, $actor, $token, $cursor="") {
-    print "...Updating Cache: " . $action . " " . $actor . " " . $cursor . "...<br />";
-    $account = 'prospectorsc';
-    if ($action == 'transfer') {
-        $account = 'prospectorsg';
-    }
-    $json = searchTransactions('account:' . $account . ' action:' . $action .' auth:' . $actor, $token, $cursor);
-    return $json;
-}
-
-function getActionDataByKey($action, $key, $token, $cursor="") {
-    $json = getJSONByKeyCached($action, $key, $token, $cursor);
-    $previous_hash = md5($json);
-    $data = json_decode($json,true);
-    $transactions = $data['transactions'];
-    if (array_key_exists('cursor', $data) && $data['cursor'] != "") {
-        $cursor = $data['cursor'];
-        $keep_fetching = true;
-        while($keep_fetching) {
-            $more_json = getJSONByKeyCached($action, $key, $token, $cursor);
-            $hash = md5($more_json);
-            $more_data = json_decode($more_json,true);
-            if (array_key_exists('cursor', $more_data)  && $more_data['cursor'] != "") {
-                if ($cursor == $more_data['cursor'] && $hash == $previous_hash) {
-                    $keep_fetching = false;
-                } else {
-                    $transactions = array_merge($transactions,$more_data['transactions']);
-                }
-                $cursor = $more_data['cursor'];
-                $previous_hash = $hash;
-            } else {
-                $keep_fetching = false;
-            }
-        }
-    }
-    return $transactions;
-}
-
-function getJSONByKeyCached($action, $key, $token, $cursor="") {
-    $filename = __DIR__ . '/../cache/_' . $action . '_' . str_replace('/', '-', $key) . '_' . $cursor . '.json';
-    $json = @file_get_contents($filename);
-    if ($json) {
-        return $json;
-    }
-    $json = getJSONByKey($action, $key, $token, $cursor);
-    file_put_contents($filename,$json);
-    return $json;
-}
-
-function getJSONByKey($action, $key, $token, $cursor="") {
-    print "...Updating Cache: " . $action . " " . $key . " " . $cursor . "...<br />";
-    $q = 'account:prospectorsc db.key:' . $key;
-    if ($action != '') {
-        $q .= ' action:' . $action;
-    }
-    $json = searchTransactions($q, $token, $cursor);
-    return $json;
-}
-
-function searchTransactions($q, $token, $cursor="") {
-    $params = array('q' => $q);
-    if ($cursor != "") {
-        $params['cursor'] = $cursor;
-    }
-    $json = searchTransactionsInternal($params, $token);
-    return $json;
-}
-
 function getDateTimeFromBlockTime($block_time_string) {
     $block_time_string_format = "Y-m-d H:i:s";
     $block_time_string = str_replace("T", " ", $block_time_string);
     $block_time_string = str_replace(".5", "", $block_time_string);
+    $block_time_string = str_replace("Z", "", $block_time_string);
     $BlockTime = DateTime::createFromFormat($block_time_string_format, $block_time_string);
     return $BlockTime;
 }
@@ -252,18 +151,15 @@ function checkPayment($account, $required_amount, $owner, $token) {
     $payment_date = '';
     $payment_amount = 0;
     $q = 'account:eosio.token action:transfer data.to:' . $owner . ' data.from:' . $account . ' auth:' . $account;
-    // I'd prefer this, but it takes too long to run:
-    //$params = array('q' => $q, 'sort' => 'desc', 'limit' => 1);
-    $params = array('q' => $q, 'start_block' => '29000000');
-
-    $json = searchTransactionsInternal($params, $token);
+    $json = searchGraphQL($q, '', $token, '', false);
     if ($json) {
         $data = json_decode($json, true);
-        if (count($data['transactions'])) {
-            $transaction = array_pop($data['transactions']);
-            $payment_date = $transaction['lifecycle']['execution_trace']['block_time'];
-            foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace) {
-                $payment_with_symbol = $action_trace['act']['data']['quantity'];
+        $results = $data['data']['searchTransactionsBackward']['results'];
+        if ($results) {
+            $result = $results[0];
+            $payment_date = $result['trace']['block']['timestamp'];
+            foreach ($result['trace']['matchingActions'] as $matchingAction) {
+                $payment_with_symbol = $matchingAction['data']['quantity'];
                 if (substr($payment_with_symbol, -4) == " EOS") {
                     $payment_amount = str_replace(" EOS", "", $payment_with_symbol);
                     if ($payment_amount >= $required_amount) {
@@ -282,27 +178,85 @@ function checkPayment($account, $required_amount, $owner, $token) {
     return $result;
 }
 
-function searchTransactionsInternal($params, $token) {
-    $url = 'https://mainnet.eos.dfuse.io/v0/search/transactions';
-    $header = array('Content-Type' => 'application/json');
-    $header['Authorization'] = 'Bearer ' . $token;
-    $json = request("GET", $url, $header, $params);
-    return $json;
+function getGraphQLResults($q, $table, $token) {
+    $json = searchGraphQLCached($q, $table, $token);
+    $data = json_decode($json,true);
+    $results = $data['data']['searchTransactionsForward']['results'];
+    if (count($results)) {
+        $cursor = $results[count($results)-1]['cursor'];
+        $keep_fetching = true;
+        while($keep_fetching) {
+            $more_json = searchGraphQLCached($q, $table, $token, $cursor);
+            $more_data = json_decode($more_json,true);
+            $more_results = $more_data['data']['searchTransactionsForward']['results'];
+            $keep_fetching = false;
+            if (count($more_results)) {
+                $keep_fetching = true;
+                $results = array_merge($results,$more_results);
+                $cursor = $more_results[count($more_results)-1]['cursor'];
+            }
+        }
+    }
+    return $results;
 }
 
-function binToJSONCached($hex_rows_to_process, $table, $token) {
-    $filename = __DIR__ . '/../cache/_bin_to_json_' . $table . '_' . md5(serialize($hex_rows_to_process)) . '.json';
-    $json = binToJSON($hex_rows_to_process, $table, $token);
+function searchGraphQLCached($q, $table, $token, $cursor = '') {
+    console_log("searchGraphQLCached: Checking Cache... " . $q . " " . $table . " " . $cursor);
+    $filename = __DIR__ . '/../cache/_' . str_replace(array(' ','/'),'-',$q) . '_' . $table . '_' . $cursor . '.json';
+    $json = @file_get_contents($filename);
+    if ($json) {
+        console_log("searchGraphQLCached: Cache Hit!");
+        return $json;
+    }
+    console_log("searchGraphQLCached: Searching...");
+    $json = searchGraphQL($q, $table, $token, $cursor);
     file_put_contents($filename,$json);
     return $json;
 }
 
-function binToJSON($hex_rows_to_process, $table, $token) {
-    $url = 'https://mainnet.eos.dfuse.io/v0/state/abi/bin_to_json';
-    $params = array('account' => 'prospectorsc', 'table' => $table, 'hex_rows' => $hex_rows_to_process);
+function searchGraphQL($q, $table, $token, $cursor = '', $forward = true) {
+    $search_type = 'Forward';
+    if (!$forward) {
+        $search_type = 'Backward';
+    }
+    $url = 'https://mainnet.eos.dfuse.io/graphql';
     $header = array('Content-Type' => 'application/json');
     $header['Authorization'] = 'Bearer ' . $token;
-    $json = request("POST", $url, $header, $params);
+    $cursor_string = '';
+    if ($cursor) {
+        $cursor_string = ', cursor: \"' . $cursor . '\"';
+    }
+    $query = '{"query": "{ searchTransactions' . $search_type . '(query: \"' . $q . ' notif:false\", irreversibleOnly: true' . $cursor_string . ') {
+        results {
+          cursor
+          trace {
+            id
+            block {
+              timestamp
+            }
+            matchingActions {
+              account
+              name
+              data
+              authorization {
+                actor
+              }
+              dbOps(table:\"' . $table . '\") {
+                oldJSON {
+                  object
+                }
+                newJSON {
+                  object
+                }
+              }
+            }
+          }
+        }
+      }
+    }"
+}';
+    $query = str_replace("\n", "", $query);
+    $json = request("POST", $url, $header, $query);
     return $json;
 }
 
@@ -318,7 +272,7 @@ function getTableDataCached($table, $token, $cursor="") {
 }
 
 function getTableData($table, $token, $cursor="") {
-    print "...Updating Cache: " . $table . " " . $cursor . "...<br />";
+    console_log("...Updating Cache: " . $table . " " . $cursor . "...");
     $url = 'https://mainnet.eos.dfuse.io/v0/state/table';
     $params = array('account' => 'prospectorsc', 'scope' => 'prospectorsc', 'table' => $table, 'json' => true);
     if ($cursor != "") {
@@ -359,121 +313,52 @@ function getMarketTransactionDetails($grouped_market_transactions) {
     return $market_transaction_details;
 }
 
-function addDBOPSData($transactions, $table, $token, $key_filter = '') {
-    global $types;
-    $transactions_with_deltas = array();
-    $hex_rows_to_process = array();
-    foreach ($transactions as $transaction_index => $transaction) {
-        foreach ($transaction['lifecycle']['dbops'] as $dbop) {
-            if ($dbop['table'] == $table) {
-                $include = true;
-                if ($key_filter != "" && $key_filter != $dbop['key']) {
-                    // removing this for now since we need all db operations to find referrals
-                    //$include = false;
-                }
-                if ($include) {
-                    if (count($dbop['old'])) {
-                        $hex_rows_to_process[] = $dbop['old']['hex'];
-                    }
-                    if (count($dbop['new'])) {
-                        $hex_rows_to_process[] = $dbop['new']['hex'];
-                    }
-                }
-            }
-        }
-        $transactions_with_deltas[] = $transaction;
-    }
-    $json = binToJSONCached($hex_rows_to_process, $table, $token);
-    $data = json_decode($json, true);
-    $response_index = -1;
-    foreach ($transactions_with_deltas as $transaction_index => $transaction) {
-        $dbops_with_data = array();
-        $other_dbops_with_data = array();
-        foreach ($transaction['lifecycle']['dbops'] as $dbop_index => $dbop) {
-            if ($dbop['table'] == $table) {
-                $dbop_with_data = $dbop;
-                if (count($dbop['old'])) {
-                    $response_index++;
-                    $dbop_with_data['old']['data'] = $data['rows'][$response_index];
-                }
-                if (count($dbop['new'])) {
-                    $response_index++;
-                    $dbop_with_data['new']['data'] = $data['rows'][$response_index];
-                }
-                $include = true;
-                if ($key_filter != "" && $key_filter != $dbop['key']) {
-                    $include = false;
-                }
-                if ($include) {
-                    $dbops_with_data[] = $dbop_with_data;
-                } else {
-                    $other_dbops_with_data[] = $dbop_with_data;
-                }
-            }
-        }
-        if (count($dbops_with_data)) {
-            $transactions_with_deltas[$transaction_index]['lifecycle']['dbops'] = $dbops_with_data;
-        }
-        if (count($other_dbops_with_data)) {
-            $transactions_with_deltas[$transaction_index]['lifecycle']['other_dbops'] = $other_dbops_with_data;
-        }
-    }
-    return $transactions_with_deltas;
-}
-
 function getAccountBalanceChanges($account, $token) {
     $prospectors_account = 'prospectorsc';
     $account_actions = array();
-    $deposits = getActionData('transfer', $account, $token);
-    if ($deposits) {
-        $deposits_data = getTransactionData($deposits);
-        foreach ($deposits as $key => $deposit) {
-            $include = false;
-            if ($deposits_data[$key]['data']['to'] == $prospectors_account && $deposits_data[$key]['data']['memo'] != 'stake') {
-                $include = true;
-            }
-            if ($include) {
-                $amount = (str_replace(' PGL', '', $deposits_data[$key]['data']['quantity']) * 1000);
-                $account_action = array('block_time' => $deposit["lifecycle"]['execution_trace']['block_time'], 'id' => $deposit["lifecycle"]["id"]);
-                $account_action['activity'] = 'deposit';
-                $account_action['amount'] = $amount;
-                $account_action['details'] = '';
-                $account_actions[] = $account_action;
-            }
+    $q = 'account:prospectorsg action:transfer notif:false data.to:prospectorsc data.from:' . $account . ' auth:' . $account;
+    $deposits = getGraphQLResults($q, "", $token);
+    foreach ($deposits as $result) {
+        foreach ($result['trace']['matchingActions'] as $matchingAction) {
+            $amount = (str_replace(' PGL', '', $matchingAction['data']['quantity']) * 1000);
+            $account_action = array('block_time' => $result['trace']['block']['timestamp'], 'id' => $result['trace']["id"]);
+            $account_action['activity'] = 'deposit';
+            $account_action['amount'] = $amount;
+            $account_action['details'] = '';
+            $account_action['auth'] = '';
+            $account_actions[] = $account_action;
         }
     }
-    $everything = getActionDataByKey('', 'account/prospectorsc/' . $account, $token);
-    $everything_with_deltas = array();
-    if (count($everything)) {
-        $everything_with_deltas = addDBOPSData($everything, 'account', $token, $account);
-        foreach ($everything_with_deltas as $key => $transaction) {
-            $dbops_index = 0;
-            foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-                $json = json_encode($action_trace['act']['data']);
+
+    $q = 'account:prospectorsc notif:false db.key:account/prospectorsc/' . $account;
+    $everything = getGraphQLResults($q, "account", $token);
+    foreach ($everything as $result) {
+        foreach ($result['trace']['matchingActions'] as $matchingAction) {
+            foreach ($matchingAction['dbOps'] as $dbOp) {
                 $old_balance = 0;
-                if (isset($transaction['lifecycle']['dbops'][$dbops_index]['old']['data']['balance'])) {
-                    $old_balance = $transaction['lifecycle']['dbops'][$dbops_index]['old']['data']['balance'];
+                $new_balance = 0;
+                if (isset($dbOp['oldJSON']['object']['name']) && $dbOp['oldJSON']['object']['name'] == $account) {
+                    $old_balance = $dbOp['oldJSON']['object']['balance'];
+                    $new_balance = $dbOp['newJSON']['object']['balance'];
                 }
-                $new_balance = $transaction['lifecycle']['dbops'][$dbops_index]['new']['data']['balance'];
                 $change = abs($new_balance - $old_balance);
                 if ($new_balance < $old_balance) {
                     $change = (0 - $change);
                 }
                 $amount = $change;
-                $account_action = array('block_time' => $transaction["lifecycle"]['execution_trace']['block_time'], 'id' => $transaction["lifecycle"]["id"]);
-                $account_action['activity'] = $action_trace['act']['name'];
+                $account_action = array('block_time' => $result['trace']['block']['timestamp'], 'id' => $result['trace']["id"]);
+                $account_action['activity'] = $matchingAction['name'];
                 $account_action['amount'] = $amount;
-                $account_action['details'] = $json;
+                $account_action['auth'] = $matchingAction['authorization'][0]['actor']; // assume simple permissions here
+                $account_action['details'] = $matchingAction['data'];
                 if ($change != 0) {
                     $account_actions[] = $account_action;
                 }
-                $dbops_index++;
             }
         }
     }
     usort($account_actions, 'block_time_compare');
-    $return = array('account_actions' => $account_actions, 'raw_data' => $everything_with_deltas);
-    return $return;
+    return $account_actions;
 }
 
 
@@ -539,7 +424,7 @@ function getTokenPrices($marketcapone_access_key) {
         }
     }
     if ($use_cached_data) {
-        //print "Use Cached: " . (time() - filemtime($filename)) . "<br />";
+        console_log("getTokenPrices: Use Cached: " . (time() - filemtime($filename)));
         $token_prices = json_decode($json, true);
         return $token_prices;
     }
@@ -573,7 +458,7 @@ function authenticateDFuse() {
     $json = file_get_contents($filename) or die("<br/><br/><strong>Authentication file .api_credentials.json not found.</strong>");
     $api_credentials = json_decode($json, true);
     if (time() > $api_credentials['expires_at']) {
-        print "<br />...Updating DFuse Authentication Token...<br />";
+        console_log("...Updating DFuse Authentication Token...");
         $url = 'https://auth.dfuse.io/v1/auth/issue';
         $params = array('api_key' => $api_credentials['api_key']);
         $header = array('Content-Type' => 'application/json');
@@ -589,21 +474,4 @@ function authenticateDFuse() {
         }
     }
     return $api_credentials;
-}
-
-function getTransactionData($data, $name = '') {
-    $transaction_data = array();
-    foreach ($data as $transaction_index => $transaction) {
-        foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-            $add_trace = true;
-            if ($name != '' && $action_trace['act']['name'] != $name) {
-                $add_trace = false;
-            }
-            if ($add_trace) {
-                $response = array('name' => $action_trace['act']['name'], 'data' => $action_trace['act']['data']);
-                $transaction_data[] = $response;
-            }
-        }
-    }
-    return $transaction_data;
 }
