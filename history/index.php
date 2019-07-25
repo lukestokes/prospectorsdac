@@ -184,18 +184,7 @@ if (!count($my_workers)) {
     <?php
 } else {
 
-$result = getAccountBalanceChanges($account, $api_credentials['token']);
-$account_actions = $result['account_actions'];
-$raw_data = $result['raw_data'];
-
-foreach ($account_actions as $key => $account_action) {
-    foreach ($raw_data as $transaction) {
-        if ($transaction['lifecycle']['execution_trace']['id'] == $account_action['id']) {
-            $account_actions[$key]['transaction_details'] = $transaction;
-            break;
-        }
-    }
-}
+$account_actions = getAccountBalanceChanges($account, $api_credentials['token']);
 
 $net_profits = 0;
 $balance = 0;
@@ -203,7 +192,6 @@ $referral_gains = 0;
 $daily_summary = array();
 $daily_balance = 0;
 $referral_totals = array();
-
 $transfers = array();
 ?>
 
@@ -224,26 +212,9 @@ foreach ($account_actions as $key => $account_action) {
 
     // transaction details
     $transaction = array();
-    // check if this was us or a referral
-    $from_referrer = '';
-    if (array_key_exists('transaction_details', $account_action)) {
-        $check_other_dbops_for_referrer = true;
-        foreach ($account_action['transaction_details']['lifecycle']['transaction']['actions'] as $action) {
-            foreach ($action['authorization'] as $auth) {
-                if (in_array($auth['actor'],$my_referrals)) {
-                    $from_referrer = $auth['actor'];
-                } elseif ($auth['actor'] == $account) {
-                    $check_other_dbops_for_referrer = false;
-                }
-            }
-        }
-        if ($check_other_dbops_for_referrer && $from_referrer == "") {
-            foreach ($account_action['transaction_details']['lifecycle']['other_dbops'] as $dbop) {
-                if (in_array($dbop['key'],$my_referrals)) {
-                    $from_referrer = $dbop['key'];
-                }
-            }
-        }
+    $referral = '';
+    if (in_array($account_action['auth'],$my_referrals)) {
+        $referral = $account_action['auth'];
     }
     if (in_array($account_action['activity'], array('deposit','withdraw'))) {
         $transfers[] = $account_action;
@@ -251,23 +222,23 @@ foreach ($account_actions as $key => $account_action) {
         $daily_summary[$block_day]['transfers'] += $account_action['amount'];
     }
     $balance += $account_action['amount'];
-    $transaction['is_referral'] = ($from_referrer != '');
+    $transaction['is_referral'] = ($referral != '');
     $transaction['balance'] = $balance;
     $transaction['amount'] = $account_action['amount'];
     $transaction['activity'] = getActivityDescription($account_action['activity'],$account_action['amount']);
-    if ($from_referrer != '') {
-        $transaction['activity'] = "Referral " . $from_referrer . " " . $transaction['activity'];
-        if (!array_key_exists($from_referrer, $referral_totals)) {
-            $referral_totals[$from_referrer] = 0;
+    if ($referral != '') {
+        $transaction['activity'] = "<em>Referral " . $referral . " " . $transaction['activity'] . "</em>";
+        if (!array_key_exists($referral, $referral_totals)) {
+            $referral_totals[$referral] = 0;
         }
-        $referral_totals[$from_referrer] += $account_action['amount'];
+        $referral_totals[$referral] += $account_action['amount'];
         $referral_gains += $account_action['amount'];
     }
     $transaction['time'] = "<a target=\"_new\" href=\"https://eosq.app/tx/" . $account_action['id'] . "\">" . $account_action['block_time'] . "</a>";
 
     $details_display = '';
-    if ($account_action['details'] != '') {
-        $details = json_decode($account_action['details'],true);
+    if ($account_action['details']) {
+        $details = $account_action['details'];
         $details_display .= "<table>";
         foreach ($details as $key => $value) {
             $key_display = $key;

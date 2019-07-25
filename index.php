@@ -101,23 +101,24 @@ $loc_owner = '1lukestokes1';
 $json = getTableDataCached("account", $api_credentials['token']);
 $all_players = json_decode($json,true);
 
-
-$transactions = getActionData('mvstorewrk', $loc_owner, $api_credentials['token']);
+$q = 'account:prospectorsc action:mvstorewrk notif:false auth:' . $loc_owner;
+$results = getGraphQLResults($q, '', $api_credentials['token']);
 
 $transfers_out = array();
-$transaction_data = getTransactionData($transactions,'mvstorewrk');
-foreach ($transaction_data as $data) {
-    if ($data['data']['loc_id'] == $dac_loc_id) {
-        $worker_id = $data['data']['worker_id'];
-        if (!array_key_exists($worker_id, $transfers_out)) {
-            $transfers_out[$worker_id] = array();
-            $transfers_out[$worker_id]['types'] = array();
+foreach ($results as $result) {
+    foreach ($result['trace']['matchingActions'] as $matchingAction) {
+        if ($matchingAction['data']['loc_id'] == $dac_loc_id) {
+            $worker_id = $matchingAction['data']['worker_id'];
+            if (!array_key_exists($worker_id, $transfers_out)) {
+                $transfers_out[$worker_id] = array();
+                $transfers_out[$worker_id]['types'] = array();
+            }
+            $type = $types[$matchingAction['data']['stuff']['type_id']];
+            if (!array_key_exists($type, $transfers_out[$worker_id]['types'])) {
+                $transfers_out[$worker_id]['types'][$type] = 0;
+            }
+            $transfers_out[$worker_id]['types'][$type] += $matchingAction['data']['stuff']['amount'];
         }
-        $type = $types[$data['data']['stuff']['type_id']];
-        if (!array_key_exists($type, $transfers_out[$worker_id]['types'])) {
-            $transfers_out[$worker_id]['types'][$type] = 0;
-        }
-        $transfers_out[$worker_id]['types'][$type] += $data['data']['stuff']['amount'];
     }
 }
 $transfers_out_by_player = array();
@@ -129,21 +130,21 @@ foreach ($all_players['rows'] as $index => $player) {
 
 $transfers_in = array();
 foreach (array_keys($transfers_out_by_player) as $index => $player_name) {
-    $transactions = getActionData('mvwrkstore', $player_name, $api_credentials['token']);
-    if ($transactions) {
-        $transaction_data = getTransactionData($transactions,'mvwrkstore');
-        foreach ($transaction_data as $data) {
-            if ($data['data']['loc_id'] == $dac_loc_id) {
-                $worker_id = $data['data']['worker_id'];
+    $q = 'account:prospectorsc action:mvwrkstore notif:false auth:' . $player_name;
+    $results = getGraphQLResults($q, '', $api_credentials['token']);
+    foreach ($results as $result) {
+        foreach ($result['trace']['matchingActions'] as $matchingAction) {
+            if ($matchingAction['data']['loc_id'] == $dac_loc_id) {
+                $worker_id = $matchingAction['data']['worker_id'];
                 if (!array_key_exists($worker_id, $transfers_in)) {
                     $transfers_in[$worker_id] = array();
                     $transfers_in[$worker_id]['types'] = array();
                 }
-                $type = $types[$data['data']['stuff']['type_id']];
+                $type = $types[$matchingAction['data']['stuff']['type_id']];
                 if (!array_key_exists($type, $transfers_in[$worker_id]['types'])) {
                     $transfers_in[$worker_id]['types'][$type] = 0;
                 }
-                $transfers_in[$worker_id]['types'][$type] += $data['data']['stuff']['amount'];
+                $transfers_in[$worker_id]['types'][$type] += $matchingAction['data']['stuff']['amount'];
             }
         }
     }
@@ -318,26 +319,25 @@ foreach ($net_transfers_by_player as $player => $data) {
 
 <?php
 
-$transactions = getActionData('mkpurchase', $loc_owner, $api_credentials['token']);
-$transactions_with_deltas = addDBOPSData($transactions, 'market', $api_credentials['token']);
 $purchases = array();
-foreach ($transactions_with_deltas as $transaction) {
-    $purchase = array();
-    $dbops_index = 0;
-    foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-        $dbop = $transaction['lifecycle']['dbops'][$dbops_index];
-        $purchase['type'] = $types[$dbop['old']['data']['stuff']['type_id']];
-        $purchase['amount'] = $dbop['old']['data']['stuff']['amount'];
-        $purchase['price'] = $dbop['old']['data']['price'];
-        if (count($dbop['new'])) {
-            $purchase['amount'] -= $dbop['new']['data']['stuff']['amount'];
-        } else {
-            //pdump($transaction);
+$q = 'account:prospectorsc action:mkpurchase notif:false auth:' . $loc_owner;
+$results = getGraphQLResults($q, '', $api_credentials['token']);
+foreach ($results as $result) {
+    foreach ($result['trace']['matchingActions'] as $matchingAction) {
+        foreach ($matchingAction['dbOps'] as $dbOp) {
+            if (isset($dbOp['oldJSON']['object']['stuff'])) {
+                $purchase = array();
+                $purchase['type'] = $types[$dbOp['oldJSON']['object']['stuff']['type_id']];
+                $purchase['amount'] = $dbOp['oldJSON']['object']['stuff']['amount'];
+                $purchase['price'] = $dbOp['oldJSON']['object']['price'];
+                if (isset($dbOp['newJSON']['object']['stuff']['amount'])) {
+                    $purchase['amount'] -= $dbOp['newJSON']['object']['stuff']['amount'];
+                }
+                $purchase['amount'] = formatAmount($purchase['amount'],0,$purchase['type']);
+                $purchase['total'] = $purchase['amount'] * $purchase['price'];
+                $purchases[] = $purchase;
+            }
         }
-        $purchase['amount'] = formatAmount($purchase['amount'],0,$purchase['type']);
-        $purchase['total'] = $purchase['amount'] * $purchase['price'];
-        $purchases[] = $purchase;
-        $dbops_index++;
     }
 }
 
@@ -406,51 +406,50 @@ $purchase_details = getMarketTransactionDetails($grouped_purchases);
 
 <?php
 
-$transactions = getActionDataByKey('mkpurchase', 'account/prospectorsc/' . $loc_owner, $api_credentials['token']);
-$transactions_with_deltas = addDBOPSData($transactions, 'market', $api_credentials['token']);
-
-
 $sales_transactions = array();
-foreach ($transactions_with_deltas as $transaction) {
+$q = 'account:prospectorsc db.key:account/prospectorsc/' . $loc_owner . ' action:mkpurchase notif:false';
+$results = getGraphQLResults($q, '', $api_credentials['token']);
+
+foreach ($results as $result) {
     $include = true;
-    foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
+    foreach ($result['trace']['matchingActions'] as $matchingAction) {
         // exclude purchases
-        if ($action_trace['act']['authorization'][0]['actor'] == $loc_owner) {
+        if ($matchingAction['authorization'][0]['actor'] == $loc_owner) {
             $include = false;
         }
-    }
-    foreach ($transaction['lifecycle']['dbops'] as $dbop_index => $dbop) {
-        // exclude referrals sales
-        if (isset($dbop['old']['data']['owner']) && $dbop['old']['data']['owner'] != $loc_owner) {
-            $include = false;
+        foreach ($matchingAction['dbOps'] as $dbOp) {
+            // exclude referrals sales
+            if (isset($dbOp['oldJSON']['object']['owner']) && $dbOp['oldJSON']['object']['owner'] != $loc_owner) {
+                $include = false;
+            }
         }
     }
     if ($include) {
-        $sales_transactions[] = $transaction;
+        $sales_transactions[] = $result;
     }
 }
 
 $sales = array();
 foreach ($sales_transactions as $transaction) {
     $sale = array();
-    $dbops_index = 0;
-    foreach ($transaction['lifecycle']['execution_trace']['action_traces'] as $action_trace_index => $action_trace) {
-        $dbop = $transaction['lifecycle']['dbops'][$dbops_index];
-        $sale['type'] = $types[$dbop['old']['data']['stuff']['type_id']];
-        $sale['amount'] = $dbop['old']['data']['stuff']['amount'];
-        $sale['price'] = $dbop['old']['data']['price'];
-        if (count($dbop['new'])) {
-            $sale['amount'] -= $dbop['new']['data']['stuff']['amount'];
-        } else {
-            //pdump($transaction);
+    foreach ($transaction['trace']['matchingActions'] as $matchingAction) {
+        foreach ($matchingAction['dbOps'] as $dbOp) {
+            if (isset($dbOp['oldJSON']['object']['stuff'])) {
+                $sale['type'] = $types[$dbOp['oldJSON']['object']['stuff']['type_id']];
+                $sale['amount'] = $dbOp['oldJSON']['object']['stuff']['amount'];
+                $sale['price'] = $dbOp['oldJSON']['object']['price'];
+                if (isset($dbOp['newJSON']['object']['stuff']['amount'])) {
+                    $sale['amount'] -= $dbOp['newJSON']['object']['stuff']['amount'];
+                } else {
+                    //pdump($transaction);
+                }
+                $sale['amount'] = formatAmount($sale['amount'],0,$sale['type']);
+                $sale['total'] = $sale['amount'] * $sale['price'];
+                $sales[] = $sale;
+            }
         }
-        $sale['amount'] = formatAmount($sale['amount'],0,$sale['type']);
-        $sale['total'] = $sale['amount'] * $sale['price'];
-        $sales[] = $sale;
-        $dbops_index++;
     }
 }
-
 $grouped_sales = groupMarketTransactions($sales);
 $sales_details = getMarketTransactionDetails($grouped_sales);
 
@@ -511,67 +510,6 @@ $sales_details = getMarketTransactionDetails($grouped_sales);
         <td><?php print $total; ?></td>
     </tr>
 </table>
-
-<?php
-    $valid_accounts = array_keys($net_transfers_by_player);
-    $account_options = '';
-    $selected_option = '';
-    if (array_key_exists('account', $_GET)) {
-        $selected_option = $_GET['account'];
-    }
-    foreach ($valid_accounts as $account) {
-        $selected = '';
-        if ($account == $selected_option) {
-            $selected = ' selected';
-        }
-        $account_options .= '<option' . $selected . ' value="' . $account . '">' . $account . '</option>';
-    }
-?>
-
-<form method="GET" action="">
-    View Account Balance History: <select name="account"><?php print $account_options; ?></select>
-    <input type="submit">
-</form>
-
-<?php
-
-
-if (array_key_exists('account', $_GET)) {
-    $valid_accounts = array_keys($net_transfers_by_player);
-    if (in_array($_GET['account'], $valid_accounts)) {
-        $result = getAccountBalanceChanges($_GET['account'], $api_credentials['token']);
-        $account_actions = $result['account_actions'];
-        $balance = 0;
-        ?>
-        <h1>Balance Over Time for <?php print $_GET['account']; ?></h1>
-        <table>
-            <tr>
-                <th></th>
-                <th>Balance</th>
-                <th>Time</th>
-                <th>Change</th>
-                <th>Activity</th>
-                <th>Details</th>
-            </tr>
-        <?php
-        foreach ($account_actions as $key => $account_action) {
-            $balance += $account_action['amount'];
-            print "<tr>";
-            print "<td>" . $key . "</td>";
-            print "<td>" . $balance . "</td>";
-            print "<td><a href=\"https://eosq.app/tx/" . $account_action['id'] . "\">" . $account_action['block_time'] . "</a></td>";
-            print "<td>" . $account_action['amount'] . "</td>";
-            print "<td>" . $account_action['activity'] . "</td>";
-            print "<td>" . $account_action['details'] . "</td>";
-            print "</tr>";
-        }
-        print "</table>";
-    } else {
-        print "<strong>Error:</strong> You do not appear to be a participant in this plot.<br />";
-    }
-}
-?>
-
-
+    <br /><br /><a href="/history/">Click here to view your account history balance</a><br /><br /><br />
   </body>
 </html>
