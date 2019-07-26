@@ -373,9 +373,19 @@ function clearEmptyCacheFiles($account) {
                 $checkfile = true;
             }
             if ($checkfile) {
+                $delete_file = false;
                 $json = file_get_contents(__DIR__ . '/../cache/' . $filename);
                 $data = json_decode($json, true);
+                if (isset($data['data']['searchTransactionsForward']['results']) && count($data['data']['searchTransactionsForward']['results'] == 0)) {
+                    $delete_file = true;
+                }
+                if (isset($data['data']['searchTransactionsBackward']['results']) && count($data['data']['searchTransactionsBackward']['results'] == 0)) {
+                    $delete_file = true;
+                }
                 if ($data && array_key_exists('cursor', $data) && $data['cursor'] == '') {
+                    $delete_file = true;
+                }
+                if ($delete_file) {
                     $files_to_delete[] = __DIR__ . '/../cache/' . $filename;
                 }
             }
