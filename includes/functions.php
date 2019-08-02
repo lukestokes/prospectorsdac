@@ -226,7 +226,7 @@ function searchGraphQL($q, $table, $token, $cursor = '', $forward = true) {
     if ($cursor) {
         $cursor_string = ', cursor: \"' . $cursor . '\"';
     }
-    $query = '{"query": "{ searchTransactions' . $search_type . '(query: \"' . $q . ' notif:false\", irreversibleOnly: true' . $cursor_string . ') {
+    $query = '{"query": "{ searchTransactions' . $search_type . '(query: \"' . $q . ' notif:false\"' . $cursor_string . ') {
         results {
           cursor
           trace {
