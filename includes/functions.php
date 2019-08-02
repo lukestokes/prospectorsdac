@@ -215,16 +215,17 @@ function searchGraphQLCached($q, $table, $token, $cursor = '') {
 }
 
 function searchGraphQL($q, $table, $token, $cursor = '', $forward = true) {
-    $search_type = 'Forward';
-    if (!$forward) {
-        $search_type = 'Backward';
-    }
     $url = 'https://mainnet.eos.dfuse.io/graphql';
     $header = array('Content-Type' => 'application/json');
     $header['Authorization'] = 'Bearer ' . $token;
     $cursor_string = '';
     if ($cursor) {
         $cursor_string = ', cursor: \"' . $cursor . '\"';
+    }
+    $search_type = 'Forward';
+    if (!$forward) {
+        $search_type = 'Backward';
+        $cursor_string = ', lowBlockNum: 60000000';
     }
     $query = '{"query": "{ searchTransactions' . $search_type . '(query: \"' . $q . ' notif:false\"' . $cursor_string . ') {
         results {
